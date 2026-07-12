@@ -31,43 +31,38 @@
       <div style="margin-left:auto;background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:10px 20px;display:flex;align-items:center;gap:10px">
         <span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--red,#c47b10)">how_to_vote</span>
         <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575)">YOUR POWER</span>
-        <span style="font-family:'Doto',monospace;font-weight:900;font-size:17px">84,300 OSM</span>
+        <span data-slot="gov.power" style="font-family:'Doto',monospace;font-weight:900;font-size:17px">84,300 OSM</span>
       </div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:24px">
       <div style="background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:22px;padding:clamp(20px,3vw,28px)">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em">
-          <div style="display:flex;align-items:center;gap:7px;color:var(--red,#c47b10)"><span style="width:5px;height:5px;border-radius:50%;background:var(--red,#c47b10);display:inline-block"></span>OSM-042 · LIVE · ENDS 2D 14H</div>
-          <div style="opacity:.55">QUORUM 30% · REACHED ✓</div>
+          <div style="display:flex;align-items:center;gap:7px;color:var(--red,#c47b10)"><span style="width:5px;height:5px;border-radius:50%;background:var(--red,#c47b10);display:inline-block"></span><span data-slot="gov.liveMeta">OSM-042 · LIVE · ENDS 2D 14H</span></div>
+          <div data-slot="gov.quorum" style="opacity:.55">QUORUM 30% · REACHED ✓</div>
         </div>
-        <div style="font-size:clamp(19px,2.4vw,24px);font-weight:700;margin-top:14px;line-height:1.35">Fund Nova Reef Series B with 2.4M OSM from the treasury</div>
-        <div style="font-size:14px;line-height:1.65;opacity:.65;margin-top:10px">Proposed by @marisol. Deploys 0.84% of treasury into the Series B round at 11.1% target APY. Diligence report audited by Fieldstone. Dividends begin Q4 2026.</div>
+        <div data-slot="gov.title" style="font-size:clamp(19px,2.4vw,24px);font-weight:700;margin-top:14px;line-height:1.35">Fund Nova Reef Series B with 2.4M OSM from the treasury</div>
+        <div data-slot="gov.blurb" style="font-size:14px;line-height:1.65;opacity:.65;margin-top:10px">Proposed by @marisol. Deploys 0.84% of treasury into the Series B round at 11.1% target APY. Diligence report audited by Fieldstone. Dividends begin Q4 2026.</div>
         <div style="display:flex;align-items:center;gap:14px;margin-top:20px;flex-wrap:wrap">
-          <div style="flex:1;min-width:200px;position:relative;height:10px;background-image:radial-gradient(circle,color-mix(in srgb,var(--inv,#fff) 28%,transparent) 1.8px,transparent 2.3px);background-size:10px 10px"><div style="position:absolute;left:0;top:0;bottom:0;width:68%;background-image:radial-gradient(circle,var(--grn,#17a562) 1.8px,transparent 2.3px);background-size:10px 10px"></div></div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px"><span style="color:var(--grn,#17a562)">FOR 68%</span> <span style="opacity:.45">· AGAINST 32% · 14,882 VOTERS</span></div>
+          <div style="flex:1;min-width:200px;position:relative;height:10px;background-image:radial-gradient(circle,color-mix(in srgb,var(--inv,#fff) 28%,transparent) 1.8px,transparent 2.3px);background-size:10px 10px"><div data-slot="gov.meterFor" style="position:absolute;left:0;top:0;bottom:0;width:68%;background-image:radial-gradient(circle,var(--grn,#17a562) 1.8px,transparent 2.3px);background-size:10px 10px"></div></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px"><span data-slot="gov.forPct" style="color:var(--grn,#17a562)">FOR 68%</span> <span data-slot="gov.tally" style="opacity:.45">· AGAINST 32% · 14,882 VOTERS</span></div>
         </div>
         <div style="display:flex;gap:9px;margin-top:20px;flex-wrap:wrap">
-          <div data-action="demoVote" role="button" tabindex="0" style="flex:1;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">thumb_up</span>Vote FOR</div>
-          <div data-action="demoVote" role="button" tabindex="0" style="flex:1;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-10"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">thumb_down</span>Against</div>
-          <div style="display:flex;align-items:center;justify-content:center;padding:13px 18px;border:1px dotted color-mix(in srgb,var(--inv,#fff) 35%,transparent);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-10">Read full text</div>
+          <div data-action="demoVote" data-support="true" role="button" tabindex="0" style="flex:1;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">thumb_up</span>Vote FOR</div>
+          <div data-action="demoVote" data-support="false" role="button" tabindex="0" style="flex:1;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-10"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">thumb_down</span>Against</div>
+          <div data-action="govReadFull" role="button" tabindex="0" style="display:flex;align-items:center;justify-content:center;padding:13px 18px;border:1px dotted color-mix(in srgb,var(--inv,#fff) 35%,transparent);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-10">Read full text</div>
+          <div data-slot="gov.yourVote" style="display:none;align-items:center;justify-content:center;padding:13px 18px;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);border-radius:100px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em">YOU VOTED FOR</div>
         </div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:16px">
         <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:6px 22px 8px">
           <div style="display:flex;align-items:center;gap:7px;padding:16px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">history</span>RECENT PROPOSALS</div>
-          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-            <div style="flex:1"><div style="font-size:14px;font-weight:600">OSM-041 · List Kite Mesh on the floor</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 07 · TURNOUT 71%</div></div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:4px 12px">PASSED 81%</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-            <div style="flex:1"><div style="font-size:14px;font-weight:600">OSM-040 · Cut swap fee to 0.1%</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUN 22 · TURNOUT 68%</div></div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:4px 12px">PASSED 74%</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-            <div style="flex:1"><div style="font-size:14px;font-weight:600">OSM-039 · Open a physical branch</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUN 04 · TURNOUT 77%</div></div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--red,#c47b10);border:1px solid var(--reds,#f0b9b5);border-radius:100px;padding:4px 12px">REJECTED 42%</div>
+          <div data-list="gov.recent">
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+              <div style="flex:1"><div data-slot="row.title" style="font-size:14px;font-weight:600">OSM-041 · List Kite Mesh on the floor</div><div data-slot="row.meta" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 07 · TURNOUT 71%</div></div>
+              <div data-slot="row.chip" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:4px 12px">PASSED 81%</div>
+            </div>
           </div>
         </div>
         <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:22px">

@@ -38,22 +38,22 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-top:24px">
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">NET WORTH · YTD</div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px;color:var(--grn,#17a562)">+$11,204</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">+9.6% SINCE JAN 01</div>
+        <div data-slot="reports.netWorth" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px;color:var(--grn,#17a562)">+$11,204</div>
+        <div data-slot="reports.netWorthSub" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">+9.6% SINCE JAN 01</div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">DIVIDENDS · YTD</div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">$1,286</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">ACROSS 4 VENTURES · 7 PAYOUTS</div>
+        <div data-slot="reports.dividends" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">$1,286</div>
+        <div data-slot="reports.dividendsSub" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">ACROSS 4 VENTURES · 7 PAYOUTS</div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">FEES PAID · YTD</div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">$42.80</div>
+        <div data-slot="reports.fees" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">$42.80</div>
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">100% RECYCLED TO TREASURY</div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">RECEIPTS FILED</div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">214</div>
+        <div data-slot="reports.receipts" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">214</div>
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">AUTO-MATCHED TO CARD SPEND</div>
       </div>
     </div>
@@ -61,10 +61,11 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:22px">
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:6px 22px 10px">
         <div style="display:flex;align-items:center;gap:7px;padding:16px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">payments</span>DIVIDEND LEDGER</div>
+        <div data-list="reports.dividendLedger">
         <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-          <div style="flex:1"><div style="font-size:14px;font-weight:600">Helios Grid · Q3</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 30 · ESTIMATED</div></div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">$412.08</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--red,#c47b10);border:1px solid var(--reds,#f0b9b5);border-radius:100px;padding:3px 10px">UPCOMING</div>
+          <div style="flex:1"><div data-slot="t" style="font-size:14px;font-weight:600">Helios Grid · Q3</div><div data-slot="sub" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 30 · ESTIMATED</div></div>
+          <div data-slot="amt" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">$412.08</div>
+          <div data-slot="chip" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--red,#c47b10);border:1px solid var(--reds,#f0b9b5);border-radius:100px;padding:3px 10px">UPCOMING</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
           <div style="flex:1"><div style="font-size:14px;font-weight:600">Helios Grid · Q2</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 09 · TX 0x8f…21a</div></div>
@@ -86,14 +87,16 @@
           <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+$71.10</div>
           <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">PAID</div>
         </div>
+        </div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:16px">
         <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:6px 22px 10px">
           <div style="display:flex;align-items:center;gap:7px;padding:16px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">description</span>MONTHLY STATEMENTS</div>
+          <div data-list="reports.statements">
           <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-            <div style="flex:1;font-size:14px;font-weight:600">June 2026</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">148 TX · 2.1 MB</div>
+            <div data-slot="m" style="flex:1;font-size:14px;font-weight:600">June 2026</div>
+            <div data-slot="meta" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">148 TX · 2.1 MB</div>
             <span data-action="demoExport" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:18px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">download</span>
           </div>
           <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
@@ -106,11 +109,12 @@
             <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">122 TX · 1.7 MB</div>
             <span data-action="demoExport" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:18px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">download</span>
           </div>
+          </div>
         </div>
         <div style="background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:20px;padding:22px">
           <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;opacity:.6"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">receipt_long</span>RECEIPT VAULT</div>
-          <div style="font-size:14.5px;font-weight:600;margin-top:8px;line-height:1.45">214 receipts auto-filed this year. Snap or forward any receipt — we match it to card spend.</div>
-          <div data-action="demoImport" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:10px 20px;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">photo_camera</span>Add receipt</div>
+          <div style="font-size:14.5px;font-weight:600;margin-top:8px;line-height:1.45"><span data-slot="reports.vaultCount">214</span> receipts auto-filed this year. Snap or forward any receipt — we match it to card spend.</div>
+          <div data-action="addReceipt" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:10px 20px;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">photo_camera</span>Add receipt</div>
         </div>
       </div>
     </div>

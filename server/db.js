@@ -182,7 +182,7 @@ if (empty) {
     db.prepare(
       "INSERT INTO fundraisers (venture_id, title, blurb, target, raised, backers, apy, min_amount, ends_at) VALUES (?,?,?,?,?,?,?,?,datetime('now','+9 days','+6 hours'))")
       .run(v.nova, 'Nova Reef Series B Raise',
-        'Kelp and shellfish arrays that clean coastal water and sell premium harvests. This round funds 3 new reef sites and a processing barge. Backed by proposal OSM-042.',
+        'Kelp and shellfish arrays that clean coastal water and sell premium harvests. This round funds 3 new reef sites and a processing barge.',
         2400000, 1600000, 1204, 11.1, 100);
 
     audit(adminId, 'seed', 'db', 'initial seed');
