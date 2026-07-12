@@ -229,7 +229,7 @@ async function provisionWalletFlow() {
   });
   m.body.appendChild(grid);
   m.body.appendChild(el('div', 'display:flex;gap:8px;margin-top:10px;font-size:12px;color:var(--mut,#757575)',
-    `BTC ${v.btcAddress.slice(0, 12)}… · ETH ${v.ethAddress.slice(0, 10)}… · TESTNET`));
+    `BTC ${v.btcAddress.slice(0, 12)}… · ETH ${v.ethAddress.slice(0, 10)}… · ${wallet.IS_MAINNET ? 'MAINNET' : 'TESTNET'}`));
 
   m.body.appendChild(monoLabel('OPTIONAL — KEEP AN ENCRYPTED COPY ON THIS DEVICE'));
   const pass = el('input', inputCss);

@@ -26,12 +26,21 @@ npm test           # backend test suites (node:test)
   profile + passphrase management, admin role assignment with
   last-admin protection and audit logging.
 - **Wallets (client-side keys)** — BIP39 recovery phrases generated in the
-  browser (audited noble/scure libraries); BIP84 Bitcoin **testnet** +
-  Ethereum **Sepolia** addresses. Send/receive is genuinely functional on
-  testnet: UTXO selection + PSBT signing broadcast via mempool.space, EVM
-  sends via public Sepolia RPC. The server stores watch-only addresses —
+  browser (audited noble/scure libraries); **BIP84 Bitcoin mainnet** (`bc1…`)
+  + **Ethereum mainnet** (`0x…`) addresses. Send/receive is genuinely
+  functional: UTXO selection + PSBT signing broadcast via mempool.space, EVM
+  sends via a public mainnet RPC. The server stores watch-only addresses —
   keys never leave the device. Backup = encrypted file (PBKDF2 + AES-GCM)
   or on-device encrypted copy; restore = phrase or backup file.
+
+  > ⚠️ **Real funds.** The wallet is on **mainnet** by default
+  > (`public/js/wallet.js` → `NETWORK`). Derived addresses hold real Bitcoin
+  > and Ethereum, and sends broadcast real, irreversible transactions. The
+  > derivation is verified against the official BIP84 test vector and sends
+  > are network-guarded (a mainnet wallet refuses a testnet recipient), but
+  > **audit and dry-run with small amounts before trusting it with meaningful
+  > value.** Set `NETWORK = 'testnet'` in `public/js/wallet.js` to exercise
+  > the exact same flows on Bitcoin testnet + Ethereum Sepolia with zero risk.
 - **Banking core** — internal USDC/OSM double-entry ledger: @handle
   transfers, venture investing (balance/min/target checks, atomic),
   pro-rata dividend & reimbursement distribution by venture managers,
@@ -47,11 +56,11 @@ New members are seeded with **12,450 demo USDC + 10 OSM** so the venture
 economy is usable immediately. The gift-card store and a few ambient
 numbers (price ticker, treasury décor) remain demo content.
 
-## Testnet funds
+## Funding a wallet
 
-Wallet sends need testnet coins: Bitcoin testnet faucet
-(e.g. coinfaucet.eu) → your `tb1…` address; Sepolia faucet → your `0x…`
-address. Receive screen shows QR + address per chain.
+Send real BTC to your `bc1…` address or real ETH to your `0x…` address
+(the Receive screen shows a scannable QR + address per chain). On `testnet`
+mode, use a Bitcoin testnet / Sepolia faucet instead.
 
 ## Architecture
 

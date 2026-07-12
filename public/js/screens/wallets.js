@@ -3,8 +3,9 @@
  * can create / import / backup / restore a self-custodial vault and see
  * balances / receive addresses.
  *
- *  - Bitcoin (btc-testnet) + Ethereum (eth-sepolia) cards fill from the unlocked
- *    device vault (addresses + live testnet balances); LOCKED otherwise.
+ *  - Bitcoin + Ethereum cards fill from the unlocked device vault (addresses +
+ *    live on-chain balances) using the wallet module's active chain keys
+ *    (ctx.wallet.BTC_CHAIN / ETH_CHAIN — 'btc'/'eth' on mainnet); LOCKED otherwise.
  *  - OSM + USD Coin cards fill from the ledger balances in /api/me.
  *  - Solana card is fully static (we do not manage Solana keys).
  *  - RECEIVE panel + per-card QR icons render locally-generated QR (the only
@@ -16,7 +17,7 @@ const ETH = 3530;
 const OSM = 0.4182;
 
 // Module (closure) state — persists across screen re-activations.
-let recvChain = 'btc-testnet';   // which chain the RECEIVE panel shows
+let recvChain = null;            // active BTC chain key; initialised from ctx.wallet on first use
 let heldMnemonic = null;         // captured on create/import/unlock — for Reveal
 
 // ---- design-styled element helpers (mirror app.js / transfer.js) ------------
@@ -92,7 +93,7 @@ async function createVaultFlow(root, ctx) {
   });
   m.body.appendChild(grid);
   m.body.appendChild(el('div', 'display:flex;gap:8px;margin-top:10px;font-size:12px;color:var(--mut,#757575)',
-    `BTC ${v.btcAddress.slice(0, 12)}… · ETH ${v.ethAddress.slice(0, 10)}… · TESTNET`));
+    `BTC ${v.btcAddress.slice(0, 12)}… · ETH ${v.ethAddress.slice(0, 10)}… · ${ctx.wallet.IS_MAINNET ? 'MAINNET' : 'TESTNET'}`));
 
   m.body.appendChild(monoLabel('OPTIONAL — KEEP AN ENCRYPTED COPY ON THIS DEVICE'));
   const pass = el('input', inputCss);
@@ -360,11 +361,12 @@ function styleReceiveChips(root, ctx) {
   const idle = ';background:transparent;color:var(--inv,#fff)';
   const b = ctx.slot(root, 'wallets.recv.chipBtc');
   const e = ctx.slot(root, 'wallets.recv.chipEth');
-  if (b) b.style.cssText = base + (recvChain === 'btc-testnet' ? active : idle);
-  if (e) e.style.cssText = base + (recvChain === 'eth-sepolia' ? active : idle);
+  if (b) b.style.cssText = base + (recvChain === ctx.wallet.BTC_CHAIN ? active : idle);
+  if (e) e.style.cssText = base + (recvChain === ctx.wallet.ETH_CHAIN ? active : idle);
 }
 
 async function fillReceivePanel(root, ctx) {
+  if (!recvChain) recvChain = ctx.wallet.BTC_CHAIN;
   const cn = ctx.wallet.CHAINS[recvChain];
   ctx.slot(root, 'wallets.recv.label').textContent = `RECEIVE / ${cn.name.toUpperCase()}`;
   styleReceiveChips(root, ctx);
@@ -472,15 +474,15 @@ async function refill(root, ctx) {
   // on-chain cards
   if (!ctx.wallet.isUnlocked()) {
     heldMnemonic = null; // drop any stale phrase once the vault is locked
-    fillChainCardLocked(root, ctx, 'btc', 'TESTNET');
-    fillChainCardLocked(root, ctx, 'eth', 'SEPOLIA');
+    fillChainCardLocked(root, ctx, 'btc', ctx.wallet.CHAINS[ctx.wallet.BTC_CHAIN].net);
+    fillChainCardLocked(root, ctx, 'eth', ctx.wallet.CHAINS[ctx.wallet.ETH_CHAIN].net);
     return;
   }
 
   const addrs = ctx.wallet.addresses() || {};
   // addresses are known instantly; show them while balances load
-  fillChainCardAddress(root, ctx, 'btc', addrs['btc-testnet'], 'TESTNET');
-  fillChainCardAddress(root, ctx, 'eth', addrs['eth-sepolia'], 'SEPOLIA');
+  fillChainCardAddress(root, ctx, 'btc', addrs[ctx.wallet.BTC_CHAIN], ctx.wallet.CHAINS[ctx.wallet.BTC_CHAIN].net);
+  fillChainCardAddress(root, ctx, 'eth', addrs[ctx.wallet.ETH_CHAIN], ctx.wallet.CHAINS[ctx.wallet.ETH_CHAIN].net);
   ctx.slot(root, 'wallets.btc.bal').textContent = '…';
   ctx.slot(root, 'wallets.btc.sub').textContent = '…';
   ctx.slot(root, 'wallets.eth.bal').textContent = '…';
@@ -491,8 +493,8 @@ async function refill(root, ctx) {
   catch { chains = null; }
   if (root.__walletsSeq !== seq) return;
 
-  const btc = Number(chains?.['btc-testnet'] ?? 0);
-  const eth = Number(chains?.['eth-sepolia'] ?? 0);
+  const btc = Number(chains?.[ctx.wallet.BTC_CHAIN] ?? 0);
+  const eth = Number(chains?.[ctx.wallet.ETH_CHAIN] ?? 0);
   ctx.slot(root, 'wallets.btc.bal').textContent = btc.toFixed(5);
   setSub(ctx.slot(root, 'wallets.btc.sub'), ctx.fmt.usd(btc * BTC), '+3.1% 24H');
   ctx.slot(root, 'wallets.eth.bal').textContent = eth.toFixed(4);
@@ -513,18 +515,18 @@ export async function hydrate(root, ctx) {
     ctx.setAction('importWallet', () => importFlow(root, ctx));
     ctx.setAction('addChain', () => ctx.toast('40+ CHAINS · DEMO'));
 
-    ctx.setAction('qrBtc', () => receiveModal(ctx, 'btc-testnet'));
-    ctx.setAction('qrEth', () => receiveModal(ctx, 'eth-sepolia'));
-    ctx.setAction('copyBtc', () => copyChainAddress(ctx, 'btc-testnet'));
-    ctx.setAction('copyEth', () => copyChainAddress(ctx, 'eth-sepolia'));
+    ctx.setAction('qrBtc', () => receiveModal(ctx, ctx.wallet.BTC_CHAIN));
+    ctx.setAction('qrEth', () => receiveModal(ctx, ctx.wallet.ETH_CHAIN));
+    ctx.setAction('copyBtc', () => copyChainAddress(ctx, ctx.wallet.BTC_CHAIN));
+    ctx.setAction('copyEth', () => copyChainAddress(ctx, ctx.wallet.ETH_CHAIN));
 
-    ctx.setAction('recvSetBtc', async () => { recvChain = 'btc-testnet'; await fillReceivePanel(root, ctx); });
-    ctx.setAction('recvSetEth', async () => { recvChain = 'eth-sepolia'; await fillReceivePanel(root, ctx); });
+    ctx.setAction('recvSetBtc', async () => { recvChain = ctx.wallet.BTC_CHAIN; await fillReceivePanel(root, ctx); });
+    ctx.setAction('recvSetEth', async () => { recvChain = ctx.wallet.ETH_CHAIN; await fillReceivePanel(root, ctx); });
     ctx.setAction('recvCopy', () => copyChainAddress(ctx, recvChain));
     ctx.setAction('recvShare', () => {
       const faucet = ctx.wallet.CHAINS[recvChain]?.faucet;
       if (faucet) { window.open(faucet, '_blank'); ctx.toast('OPENING TESTNET FAUCET'); }
-      else copyChainAddress(ctx, recvChain);
+      else copyChainAddress(ctx, recvChain); // mainnet has no faucet — share = copy address
     });
 
     root.dataset.hydrated = '1';

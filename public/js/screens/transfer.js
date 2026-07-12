@@ -1,8 +1,8 @@
 /* Transfer screen hydrator.
  * Wires GET/POST /api/transfers and the client wallet.
- *  - FROM selector cycles USDC (internal ledger) / tBTC / sETH (on-chain).
+ *  - FROM selector cycles USDC (internal ledger) / BTC / ETH (on-chain).
  *  - USDC sends settle instantly via POST /api/transfers.
- *  - tBTC/sETH sends require an unlocked device wallet -> wallet.send()
+ *  - BTC/ETH sends require an unlocked device wallet -> wallet.send()
  *    (which records the broadcast via /api/transfers/record internally).
  *  - RECENT RECIPIENTS is filled from GET /api/transfers (top 5).
  * All server/user data goes through textContent only. */
@@ -11,18 +11,30 @@
 const BTC = 60684;
 const ETH = 3530;
 
-// FROM sources, cycled by the cycleFrom action.
+// FROM sources, cycled by the cycleFrom action. The on-chain rows' chain key,
+// name and symbol are filled from ctx.wallet at hydrate time so this screen
+// tracks whatever network the wallet module is on (mainnet by default).
 const FROMS = [
   { key: 'usdc', chain: 'internal', dot: '#2775ca', name: 'USD Coin · internal', sym: 'USDC', rate: 1 },
-  { key: 'btc', chain: 'btc-testnet', dot: '#f7931a', name: 'Bitcoin · testnet', sym: 'tBTC', rate: BTC },
-  { key: 'eth', chain: 'eth-sepolia', dot: '#627eea', name: 'Ethereum · sepolia', sym: 'sETH', rate: ETH },
+  { key: 'btc', chain: null, dot: '#f7931a', name: 'Bitcoin', sym: 'BTC', rate: BTC },
+  { key: 'eth', chain: null, dot: '#627eea', name: 'Ethereum', sym: 'ETH', rate: ETH },
 ];
+
+function bindNetwork(ctx) {
+  const net = ctx.wallet.IS_MAINNET ? 'mainnet' : (ctx.wallet.NETWORK === 'testnet' ? 'testnet' : ctx.wallet.NETWORK);
+  FROMS[1].chain = ctx.wallet.BTC_CHAIN;
+  FROMS[1].name = `Bitcoin · ${net}`;
+  FROMS[1].sym = ctx.wallet.CHAINS[ctx.wallet.BTC_CHAIN].symbol;
+  FROMS[2].chain = ctx.wallet.ETH_CHAIN;
+  FROMS[2].name = `Ethereum · ${ctx.wallet.IS_MAINNET ? 'mainnet' : 'sepolia'}`;
+  FROMS[2].sym = ctx.wallet.CHAINS[ctx.wallet.ETH_CHAIN].symbol;
+}
 
 // Module (closure) state — persists across screen re-activations.
 let selectedIdx = 0;      // index into FROMS
 let selectedFee = 'std';  // eco|std|pri
 let btcFees = null;       // cached mempool recommended fees
-let chainBal = {};        // { 'btc-testnet': n, 'eth-sepolia': n }
+let chainBal = {};        // keyed by the wallet's active chain keys (btc/eth on mainnet)
 
 // ---- design-styled element helpers (mirror app.js / goals.js conventions) ----
 const el = (tag, css, text) => {
@@ -110,10 +122,11 @@ function styleChips(root, ctx) {
   }
 }
 
-async function loadBtcFees() {
+async function loadBtcFees(ctx) {
   if (btcFees) return btcFees;
+  const base = `https://mempool.space${ctx.wallet.IS_MAINNET ? '' : '/testnet'}/api`;
   try {
-    const r = await fetch('https://mempool.space/testnet/api/v1/fees/recommended');
+    const r = await fetch(`${base}/v1/fees/recommended`);
     btcFees = await r.json();
   } catch { btcFees = { economyFee: 1, halfHourFee: 2, fastestFee: 3 }; }
   return btcFees;
@@ -133,12 +146,13 @@ async function updateFee(root, ctx) {
     return;
   }
   if (f.key === 'eth') {
+    const ethNet = ctx.wallet.CHAINS[ctx.wallet.ETH_CHAIN].net;
     lab.textContent = 'FEE (GAS)';
-    val.textContent = 'GAS ~21000 · SEPOLIA';
-    arr.textContent = '~30 SEC · SEPOLIA';
+    val.textContent = `GAS ~21000 · ${ethNet}`;
+    arr.textContent = `~30 SEC · ${ethNet}`;
     return;
   }
-  // btc-testnet: mempool recommended fees, per selected chip.
+  // btc: mempool recommended fees, per selected chip.
   const names = { eco: 'ECONOMY', std: 'STANDARD', pri: 'PRIORITY' };
   const mins = { eco: '~40 MIN', std: '~10 MIN', pri: '~2 MIN' };
   const field = { eco: 'economyFee', std: 'halfHourFee', pri: 'fastestFee' }[selectedFee];
@@ -146,7 +160,7 @@ async function updateFee(root, ctx) {
   arr.textContent = mins[selectedFee];
   val.textContent = '…';
   try {
-    const fees = await loadBtcFees();
+    const fees = await loadBtcFees(ctx);
     const rate = Math.max(1, Math.round(Number(fees?.[field] ?? 1)));
     val.textContent = `${rate} sat/vB`;
   } catch { val.textContent = '1 sat/vB'; }
@@ -284,7 +298,7 @@ async function reviewAndSign(root, ctx) {
     return;
   }
 
-  // on-chain (tBTC / sETH)
+  // on-chain (BTC / ETH)
   const chain = f.chain;
   if (!ctx.wallet.isUnlocked()) {
     openUnlock(ctx, async () => {
@@ -307,6 +321,7 @@ async function reviewAndSign(root, ctx) {
 
 // ---- hydrator ----------------------------------------------------------------
 export async function hydrate(root, ctx) {
+  bindNetwork(ctx); // resolve on-chain source keys/labels from the wallet's active network
   if (!root.dataset.hydrated) {
     const amtEl = ctx.slot(root, 'transfer.amount');
     amtEl?.addEventListener('input', () => updateAmountUsd(root, ctx));

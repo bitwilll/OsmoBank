@@ -28,7 +28,9 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src https://fonts.gstatic.com; img-src 'self' data:; " +
-    "connect-src 'self' https://mempool.space https://blockstream.info https://ethereum-sepolia-rpc.publicnode.com https://rpc.sepolia.org; " +
+    "connect-src 'self' https://mempool.space https://blockstream.info " +
+    "https://ethereum-rpc.publicnode.com https://eth.llamarpc.com " +
+    "https://ethereum-sepolia-rpc.publicnode.com https://rpc.sepolia.org; " +
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   next();
 });

@@ -1,41 +1,81 @@
 /* OsmoBank client-side wallet.
  *
- * ALL key material lives in the browser. The server only ever receives
- * derived public addresses (watch-only registry). Networks default to
- * TESTNET (Bitcoin testnet + Ethereum Sepolia) so send/receive is fully
- * functional without risking real funds.
+ * ALL key material lives in the browser. The server only ever receives derived
+ * PUBLIC addresses (watch-only registry) — the mnemonic and private keys never
+ * leave this device.
+ *
+ * ⚠️  NETWORK = 'mainnet' — this wallet derives and spends REAL Bitcoin and
+ *     Ethereum. Addresses are standard BIP84 (bc1…) and BIP44 (0x…) mainnet
+ *     addresses; sends broadcast real, irreversible transactions. Set NETWORK
+ *     to 'testnet' below to exercise send/receive with no financial risk.
  */
 import { api } from './api.js';
+
+// ── network selection ───────────────────────────────────────────────────────
+export const NETWORK = 'mainnet'; // 'mainnet' | 'testnet'
+
+const NET_CONFIG = {
+  mainnet: {
+    btc: {
+      key: 'btc', path: "m/84'/0'/0'/0/0", // BIP84, coin type 0' (mainnet)
+      api: 'https://mempool.space/api',
+      explorer: (tx) => `https://mempool.space/tx/${tx}`,
+      symbol: 'BTC', label: 'MAINNET · NATIVE SEGWIT', faucet: null,
+    },
+    eth: {
+      key: 'eth', rpc: 'https://ethereum-rpc.publicnode.com',
+      explorer: (tx) => `https://etherscan.io/tx/${tx}`,
+      symbol: 'ETH', label: 'MAINNET', faucet: null,
+    },
+  },
+  testnet: {
+    btc: {
+      key: 'btc-testnet', path: "m/84'/1'/0'/0/0", // coin type 1' (testnet)
+      api: 'https://mempool.space/testnet/api',
+      explorer: (tx) => `https://mempool.space/testnet/tx/${tx}`,
+      symbol: 'tBTC', label: 'TESTNET', faucet: 'https://coinfaucet.eu/en/btc-testnet/',
+    },
+    eth: {
+      key: 'eth-sepolia', rpc: 'https://ethereum-sepolia-rpc.publicnode.com',
+      explorer: (tx) => `https://sepolia.etherscan.io/tx/${tx}`,
+      symbol: 'sETH', label: 'SEPOLIA', faucet: 'https://sepoliafaucet.com/',
+    },
+  },
+};
+
+const NET = NET_CONFIG[NETWORK];
+export const BTC_CHAIN = NET.btc.key; // 'btc' on mainnet
+export const ETH_CHAIN = NET.eth.key; // 'eth' on mainnet
+export const IS_MAINNET = NETWORK === 'mainnet';
+
+const BTC_API = NET.btc.api;
+const ETH_RPC = NET.eth.rpc;
+const BTC_PATH = NET.btc.path;
+
+export const CHAINS = {
+  [NET.btc.key]: {
+    name: 'Bitcoin', net: NET.btc.label, symbol: NET.btc.symbol, color: '#f7931a',
+    explorer: NET.btc.explorer, faucet: NET.btc.faucet,
+  },
+  [NET.eth.key]: {
+    name: 'Ethereum', net: NET.eth.label, symbol: NET.eth.symbol, color: '#627eea',
+    explorer: NET.eth.explorer, faucet: NET.eth.faucet,
+  },
+};
 
 let libs = null;
 async function lib() {
   if (!libs) libs = await import('../vendor/wallet-libs.js');
   return libs;
 }
-
-export const CHAINS = {
-  'btc-testnet': {
-    name: 'Bitcoin', net: 'TESTNET', symbol: 'tBTC', color: '#f7931a',
-    explorer: (tx) => `https://mempool.space/testnet/tx/${tx}`,
-    faucet: 'https://coinfaucet.eu/en/btc-testnet/',
-  },
-  'eth-sepolia': {
-    name: 'Ethereum', net: 'SEPOLIA', symbol: 'sETH', color: '#627eea',
-    explorer: (tx) => `https://sepolia.etherscan.io/tx/${tx}`,
-    faucet: 'https://sepoliafaucet.com/',
-  },
-};
-
-const BTC_API = 'https://mempool.space/testnet/api';
-const ETH_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
-const BTC_PATH = "m/84'/1'/0'/0/0"; // BIP84, testnet coin type
+const btcNetwork = (L) => (IS_MAINNET ? L.btc.NETWORK : L.btc.TEST_NETWORK);
 
 // ---- in-memory vault ------------------------------------------------------
 let vault = null; // { mnemonic, btcAddress, ethAddress }
 
 export const isUnlocked = () => !!vault;
 export const addresses = () => vault
-  ? { 'btc-testnet': vault.btcAddress, 'eth-sepolia': vault.ethAddress }
+  ? { [NET.btc.key]: vault.btcAddress, [NET.eth.key]: vault.ethAddress }
   : null;
 
 async function derive(mnemonic) {
@@ -43,8 +83,8 @@ async function derive(mnemonic) {
   if (!L.validateMnemonic(mnemonic, L.wordlist)) throw new Error('That recovery phrase is not valid (BIP39).');
   const seed = L.mnemonicToSeedSync(mnemonic);
   const node = L.HDKey.fromMasterSeed(seed).derive(BTC_PATH);
-  const btcAddress = L.btc.p2wpkh(node.publicKey, L.btc.TEST_NETWORK).address;
-  const ethWallet = L.HDNodeWallet.fromPhrase(mnemonic); // m/44'/60'/0'/0/0
+  const btcAddress = L.btc.p2wpkh(node.publicKey, btcNetwork(L)).address;
+  const ethWallet = L.HDNodeWallet.fromPhrase(mnemonic); // m/44'/60'/0'/0/0 — network-agnostic
   return { mnemonic, btcAddress, ethAddress: ethWallet.address };
 }
 
@@ -98,7 +138,7 @@ export async function encryptVault(passphrase) {
   const key = await kdf(passphrase, salt, iterations);
   const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(vault.mnemonic));
   return {
-    version: 1, app: 'osmobank', kdf: 'PBKDF2-SHA256', iterations,
+    version: 1, app: 'osmobank', network: NETWORK, kdf: 'PBKDF2-SHA256', iterations,
     salt: b64(salt), iv: b64(iv), ciphertext: b64(ct),
     addresses: addresses(), createdAt: new Date().toISOString(),
   };
@@ -153,10 +193,10 @@ export async function chainBalances() {
     fetch(`${BTC_API}/address/${vault.btcAddress}`).then((r) => r.json()),
     new L.JsonRpcProvider(ETH_RPC).getBalance(vault.ethAddress),
   ]);
-  out['btc-testnet'] = btcRes.status === 'fulfilled'
+  out[NET.btc.key] = btcRes.status === 'fulfilled'
     ? (btcRes.value.chain_stats.funded_txo_sum - btcRes.value.chain_stats.spent_txo_sum) / 1e8
     : null;
-  out['eth-sepolia'] = ethRes.status === 'fulfilled' ? Number(L.formatEther(ethRes.value)) : null;
+  out[NET.eth.key] = ethRes.status === 'fulfilled' ? Number(L.formatEther(ethRes.value)) : null;
   return out;
 }
 
@@ -166,7 +206,7 @@ export async function receiveInfo(chain) {
   const L = await lib();
   const address = addresses()[chain];
   const qr = L.qrcode(0, 'M');
-  qr.addData(chain === 'btc-testnet' ? `bitcoin:${address}` : `ethereum:${address}`);
+  qr.addData(chain === NET.btc.key ? `bitcoin:${address}` : `ethereum:${address}`);
   qr.make();
   return { address, qrSvg: qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }) };
 }
@@ -175,7 +215,7 @@ export async function receiveInfo(chain) {
 export async function send(chain, to, amount) {
   if (!vault) throw new Error('Unlock your wallet first.');
   if (!(amount > 0)) throw new Error('Amount must be positive.');
-  const txid = chain === 'btc-testnet'
+  const txid = chain === NET.btc.key
     ? await sendBtc(to, amount)
     : await sendEth(to, amount);
   await api.post('/api/transfers/record', {
@@ -189,30 +229,45 @@ async function sendEth(to, amountEth) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(to)) throw new Error('That is not a valid Ethereum address.');
   const provider = new L.JsonRpcProvider(ETH_RPC);
   const signer = L.HDNodeWallet.fromPhrase(vault.mnemonic).connect(provider);
+  // ethers fills nonce/gas/chainId from the connected network and signs locally.
   const tx = await signer.sendTransaction({ to, value: L.parseEther(String(amountEth)) });
   return tx.hash;
 }
 
 async function sendBtc(to, amountBtc) {
   const L = await lib();
+  const net = btcNetwork(L);
   const sats = BigInt(Math.round(amountBtc * 1e8));
-  if (sats < 294n) throw new Error('Amount is below the dust limit.');
+  if (sats < 546n) throw new Error('Amount is below the dust limit.');
+
+  // Reject a recipient address from the wrong network before we build anything —
+  // btc.Transaction would throw, but a clear message avoids surprise.
+  let outScript;
+  try { outScript = L.btc.Address(net).decode(to); }
+  catch { throw new Error(`That is not a valid ${IS_MAINNET ? 'Bitcoin' : 'Bitcoin testnet'} address.`); }
+  void outScript;
 
   const seed = L.mnemonicToSeedSync(vault.mnemonic);
   const node = L.HDKey.fromMasterSeed(seed).derive(BTC_PATH);
-  const spend = L.btc.p2wpkh(node.publicKey, L.btc.TEST_NETWORK);
+  const spend = L.btc.p2wpkh(node.publicKey, net);
 
   const utxos = await fetch(`${BTC_API}/address/${vault.btcAddress}/utxo`).then((r) => r.json());
-  if (!utxos.length) throw new Error('No confirmed funds on this address yet (testnet faucet takes a few minutes).');
-  const fees = await fetch(`${BTC_API}/v1/fees/recommended`).then((r) => r.json()).catch(() => ({ halfHourFee: 2 }));
-  const feeRate = BigInt(Math.max(1, fees.halfHourFee || 2));
+  const confirmed = utxos.filter((u) => u.status && u.status.confirmed);
+  if (!confirmed.length) {
+    throw new Error(utxos.length
+      ? 'Your incoming funds are still confirming — try again in a few minutes.'
+      : 'No confirmed funds on this address yet.');
+  }
+  const fees = await fetch(`${BTC_API}/v1/fees/recommended`).then((r) => r.json())
+    .catch(() => ({ halfHourFee: IS_MAINNET ? 10 : 2 }));
+  const feeRate = BigInt(Math.max(1, Math.ceil(fees.halfHourFee || (IS_MAINNET ? 10 : 2))));
 
   // Greedy coin selection with iterative fee estimate (P2WPKH: ~68 vB/input, 31 vB/output, 11 overhead).
-  utxos.sort((a, b) => b.value - a.value);
+  confirmed.sort((a, b) => b.value - a.value);
   const picked = [];
   let inTotal = 0n;
   let fee = 0n;
-  for (const u of utxos) {
+  for (const u of confirmed) {
     picked.push(u);
     inTotal += BigInt(u.value);
     fee = feeRate * BigInt(11 + picked.length * 68 + 2 * 31);
@@ -227,9 +282,9 @@ async function sendBtc(to, amountBtc) {
       witnessUtxo: { script: spend.script, amount: BigInt(u.value) },
     });
   }
-  tx.addOutputAddress(to, sats, L.btc.TEST_NETWORK);
+  tx.addOutputAddress(to, sats, net);
   const change = inTotal - sats - fee;
-  if (change >= 294n) tx.addOutputAddress(vault.btcAddress, change, L.btc.TEST_NETWORK);
+  if (change >= 546n) tx.addOutputAddress(vault.btcAddress, change, net);
 
   tx.sign(node.privateKey);
   tx.finalize();

@@ -143,15 +143,17 @@ export async function hydrate(root, ctx) {
     const addrs = wallet.addresses() || {};
     let chains = null;
     try { chains = await wallet.chainBalances(); } catch { chains = null; }
-    if (root.__dashSeq !== seq) return; // superseded while awaiting testnet APIs
-    const btc = Number(chains?.['btc-testnet'] ?? 0);
-    const eth = Number(chains?.['eth-sepolia'] ?? 0);
+    if (root.__dashSeq !== seq) return; // superseded while awaiting on-chain APIs
+    const btcKey = wallet.BTC_CHAIN;
+    const ethKey = wallet.ETH_CHAIN;
+    const btc = Number(chains?.[btcKey] ?? 0);
+    const eth = Number(chains?.[ethKey] ?? 0);
     addRow({
-      color: '#f7931a', name: 'Bitcoin', sub: shortAddr(addrs['btc-testnet']) || 'tBTC',
+      color: '#f7931a', name: 'Bitcoin', sub: shortAddr(addrs[btcKey]) || wallet.CHAINS[btcKey].symbol,
       bal: btc.toFixed(5), value: btc * RATES.BTC, chg: '+3.1',
     });
     addRow({
-      color: '#627eea', name: 'Ethereum', sub: shortAddr(addrs['eth-sepolia']) || 'sETH',
+      color: '#627eea', name: 'Ethereum', sub: shortAddr(addrs[ethKey]) || wallet.CHAINS[ethKey].symbol,
       bal: eth.toFixed(4), value: eth * RATES.ETH, chg: '+1.8',
     });
   }
