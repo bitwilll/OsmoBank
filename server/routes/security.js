@@ -7,7 +7,7 @@ import {
   generateRegistrationOptions, verifyRegistrationResponse,
 } from '@simplewebauthn/server';
 import { db, audit } from '../db.js';
-import { ApiError, str, requireAuth, verifyPass } from '../lib/util.js';
+import { ApiError, str, requireAuth, verifyPass, assertNotLocked, recordFail, clearFails } from '../lib/util.js';
 import { generateSecret, verifyTotp, otpauthUri } from '../lib/totp.js';
 
 export const RP_ID = process.env.OSMO_RP_ID || 'localhost';
@@ -54,11 +54,14 @@ export default function mount(app) {
 
   app.post('/api/security/2fa/enable', requireAuth, (req, res, next) => {
     try {
+      const lockKey = `2fa-enable:${req.user.id}`;
+      assertNotLocked(lockKey);
       const code = str(req.body?.code, { min: 6, max: 6, name: 'code' });
       const row = db.prepare('SELECT secret, enabled FROM user_2fa WHERE user_id = ?').get(req.user.id);
       if (!row) throw new ApiError(400, 'Start 2FA setup first');
       if (row.enabled) throw new ApiError(409, 'Two-factor is already enabled');
-      if (!verifyTotp(row.secret, code)) throw new ApiError(401, 'That code is not valid — check your authenticator');
+      if (!verifyTotp(row.secret, code)) { recordFail(lockKey); throw new ApiError(401, 'That code is not valid — check your authenticator'); }
+      clearFails(lockKey);
       db.prepare('UPDATE user_2fa SET enabled = 1 WHERE user_id = ?').run(req.user.id);
       audit(req.user.id, '2fa.enable', `user:${req.user.id}`);
       res.json({ ok: true, ...securityStatus(req.user.id) });

@@ -4,7 +4,7 @@
  * gift-card store debits the real USDC ledger. */
 import { randomInt } from 'node:crypto';
 import { db, tx, balance, audit } from '../db.js';
-import { ApiError, str, num, oneOf, round2, requireAuth, verifyPass } from '../lib/util.js';
+import { ApiError, str, num, oneOf, round2, requireAuth, verifyPass, assertNotLocked, recordFail, clearFails } from '../lib/util.js';
 
 const BINS = { OSMO: '473501', VISA: '400000', MC: '520000' };
 
@@ -111,8 +111,11 @@ export default function mount(app) {
   app.post('/api/cards/:id/reveal', requireAuth, (req, res, next) => {
     try {
       const c = ownCard(req);
+      const lockKey = `reveal:${req.user.id}`;
+      assertNotLocked(lockKey);
       const pass = str(req.body?.passphrase, { min: 1, max: 200, name: 'passphrase' });
-      if (!verifyPass(pass, req.user.pass)) throw new ApiError(401, 'Wrong passphrase');
+      if (!verifyPass(pass, req.user.pass)) { recordFail(lockKey); throw new ApiError(401, 'Wrong passphrase'); }
+      clearFails(lockKey);
       audit(req.user.id, 'card.reveal', `card:${c.id}`);
       res.json({
         pan: c.pan.replace(/(.{4})/g, '$1 ').trim(), cvv: c.cvv,

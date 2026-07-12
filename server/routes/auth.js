@@ -3,7 +3,8 @@ import { generateAuthenticationOptions, verifyAuthenticationResponse } from '@si
 import { db, tx, balance, audit, hashPass } from '../db.js';
 import {
   ApiError, str, num, verifyPass, createSession, destroySession,
-  requireAuth, rateLimit, publicUser, readCookie,
+  requireAuth, rateLimit, publicUser, readCookie, cookieString, appendCookie, PK_COOKIE,
+  assertNotLocked, recordFail, clearFails,
 } from '../lib/util.js';
 import { verifyTotp } from '../lib/totp.js';
 import {
@@ -71,10 +72,13 @@ export default function mount(app) {
 
       // Two-factor step-up: if enabled, a valid TOTP code is required to finish.
       if (twoFactorEnabled(user.id)) {
+        const lockKey = `2fa:${user.id}`;
+        assertNotLocked(lockKey);
         const code = req.body?.totpCode ? String(req.body.totpCode) : '';
         const secret = db.prepare('SELECT secret FROM user_2fa WHERE user_id = ?').get(user.id)?.secret;
         if (!code) return res.status(401).json({ error: 'Two-factor code required', twoFactorRequired: true });
-        if (!secret || !verifyTotp(secret, code)) throw new ApiError(401, 'That two-factor code is not valid');
+        if (!secret || !verifyTotp(secret, code)) { recordFail(lockKey); throw new ApiError(401, 'That two-factor code is not valid'); }
+        clearFails(lockKey);
       }
 
       createSession(res, user.id);
@@ -105,14 +109,14 @@ export default function mount(app) {
       });
       const token = randomBytes(24).toString('hex');
       saveChallenge(`login:${token}`, null, options.challenge, 'login');
-      res.setHeader('Set-Cookie', `ob_pk=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=300`);
+      appendCookie(res, cookieString(PK_COOKIE, token, { maxAge: 300 }));
       res.json(options);
     } catch (e) { next(e); }
   });
 
   app.post('/api/auth/passkey/login/verify', authLimiter, async (req, res, next) => {
     try {
-      const token = readCookie(req, 'ob_pk');
+      const token = readCookie(req, PK_COOKIE);
       if (!token || !/^[0-9a-f]{48}$/.test(token)) throw new ApiError(400, 'Passkey login expired — try again');
       const ch = takeChallenge(`login:${token}`, 'login');
       if (!ch) throw new ApiError(400, 'Passkey login expired — try again');

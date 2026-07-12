@@ -6,6 +6,45 @@ const AMBER = 'var(--red,#c47b10)';
 const AMBER_BORDER = 'var(--reds,#f0b9b5)';
 const GRN_BORDER = 'color-mix(in srgb,var(--grn,#17a562) 35%,transparent)';
 
+// ---- design-styled element helpers (mirrors app.js modal conventions) -------
+const mk = (tag, css, text) => {
+  const n = document.createElement(tag);
+  if (css) n.style.cssText = css;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+const modalDescCss = "font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);letter-spacing:.06em;margin:2px 0 4px";
+const pillBaseCss = "display:flex;align-items:center;justify-content:center;gap:9px;padding:13px 0;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px";
+const pillSolidCss = pillBaseCss + ';background:var(--ink,#0a0a0a);color:var(--inv,#fff)';
+const pillGhostCss = pillBaseCss + ';border:1px solid var(--dt,#d9d9d9);color:var(--ink,#0a0a0a)';
+const pillIconCss = "font-family:'Material Symbols Sharp';font-size:18px;line-height:1";
+
+/** CSV/PDF export chooser for the account statement. */
+function openExportChooser(ctx) {
+  const m = ctx.buildModal('EXPORT STATEMENT', 'download');
+  m.body.appendChild(mk('div', modalDescCss, 'LEDGER · DIVIDENDS · FEES · CHOOSE A FORMAT'));
+
+  const makeBtn = (format, icon, label, css) => {
+    const b = mk('div', css);
+    b.setAttribute('role', 'button');
+    b.setAttribute('tabindex', '0');
+    b.append(mk('span', pillIconCss, icon), document.createTextNode(label));
+    const go = () => {
+      window.open(`/api/reports/export?format=${format}`);
+      ctx.toast(`STATEMENT EXPORTED · ${format.toUpperCase()}`);
+      m.close();
+    };
+    b.addEventListener('click', go);
+    b.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
+    return b;
+  };
+
+  m.body.appendChild(makeBtn('csv', 'table_view', 'Download CSV', pillSolidCss));
+  m.body.appendChild(makeBtn('pdf', 'picture_as_pdf', 'Download PDF', pillGhostCss));
+}
+
 /** sqlite dates come as 'YYYY-MM-DD[ HH:MM:SS]'; fmt.date needs a time part. */
 const isoish = (d) => {
   const s = String(d ?? '');
@@ -31,6 +70,10 @@ export async function hydrate(root, ctx) {
 
   if (!root.dataset.hydrated) {
     setAction('addReceipt', () => toast('RECEIPT SNAPPED · MATCHED TO CARD SPEND · DEMO'));
+    // "Export CSV / PDF" now opens a format chooser instead of a direct CSV download.
+    setAction('demoExport', () => openExportChooser(ctx));
+    // per-month statement download icons stream the PDF statement directly.
+    setAction('exportPdf', () => window.open('/api/reports/export?format=pdf'));
     root.dataset.hydrated = '1';
   }
 
@@ -114,8 +157,8 @@ export async function hydrate(root, ctx) {
     slot(row, 'm').textContent = monthName(s.month);
     slot(row, 'meta').textContent =
       `${fmt.num(s.txCount)} TX · ${Number(s.sizeMb ?? 0).toFixed(1)} MB`;
-    // the cloned download icon keeps data-action="demoExport"
-    // (global: window.open('/api/reports/export') + toast)
+    // the cloned download icon keeps data-action="exportPdf"
+    // (screen action: window.open('/api/reports/export?format=pdf'))
   }
   if (!(rep.statements || []).length) {
     const row = st.add();

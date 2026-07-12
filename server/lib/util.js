@@ -52,17 +52,35 @@ export function createSession(res, userId) {
   return token;
 }
 
+// Over HTTPS (production) cookies carry the Secure flag and the __Host- prefix,
+// which the browser only accepts on a Secure, Path=/, Domain-less cookie — this
+// hard-binds the session cookie to this exact host and blocks plaintext/MITM
+// theft and subdomain injection. In local HTTP dev, Secure would stop the
+// browser sending the cookie at all, so it is dropped and the plain name is used.
+export const SECURE_COOKIES = process.env.NODE_ENV === 'production' || process.env.OSMO_SECURE_COOKIES === '1';
+export const SESS_COOKIE = SECURE_COOKIES ? '__Host-ob_sess' : 'ob_sess';
+export const PK_COOKIE = SECURE_COOKIES ? '__Host-ob_pk' : 'ob_pk';
+
+/** Build a Set-Cookie string with our standard hardening flags. */
+export function cookieString(name, value, { maxAge, clear = false } = {}) {
+  const parts = [`${name}=${clear ? '' : value}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
+  parts.push(clear ? 'Max-Age=0' : `Max-Age=${maxAge}`);
+  if (SECURE_COOKIES) parts.push('Secure');
+  return parts.join('; ');
+}
+
+/** Append (not overwrite) a Set-Cookie header so several cookies can coexist. */
+export function appendCookie(res, str) {
+  const prev = res.getHeader('Set-Cookie');
+  res.setHeader('Set-Cookie', prev ? [].concat(prev, str) : str);
+}
+
 export function setSessionCookie(res, token, clear = false) {
-  const parts = [
-    `ob_sess=${clear ? '' : token}`,
-    'Path=/', 'HttpOnly', 'SameSite=Strict',
-    clear ? 'Max-Age=0' : `Max-Age=${SESSION_DAYS * 86400}`,
-  ];
-  res.setHeader('Set-Cookie', parts.join('; '));
+  appendCookie(res, cookieString(SESS_COOKIE, token, { maxAge: SESSION_DAYS * 86400, clear }));
 }
 
 export function destroySession(req, res) {
-  const token = readCookie(req, 'ob_sess');
+  const token = readCookie(req, SESS_COOKIE);
   if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
   setSessionCookie(res, '', true);
 }
@@ -83,7 +101,7 @@ export function publicUser(u) {
 
 /** Attach req.user when a valid session cookie is present (never rejects). */
 export function loadSession(req, res, next) {
-  const token = readCookie(req, 'ob_sess');
+  const token = readCookie(req, SESS_COOKIE);
   if (token && /^[0-9a-f]{64}$/.test(token)) {
     const row = db.prepare(
       `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
@@ -132,3 +150,28 @@ setInterval(() => {
   const now = Date.now();
   for (const [k, b] of buckets) if (now > b.reset) buckets.delete(k);
 }, 60000).unref();
+
+// ---- account lockout (brute-force defense for verification codes) ----------
+// Per-key failure counter with an exponential-ish cooldown, so guessing a 6-digit
+// TOTP or a card passphrase is throttled per account regardless of source IP.
+const fails = new Map();
+const LOCK_THRESHOLD = 6;      // consecutive failures before lockout
+const LOCK_MS = 15 * 60 * 1000; // cooldown once locked
+
+export function assertNotLocked(key) {
+  const f = fails.get(key);
+  if (f && f.until && Date.now() < f.until) {
+    throw new ApiError(429, 'Too many attempts — locked for a few minutes');
+  }
+}
+export function recordFail(key) {
+  const f = fails.get(key) || { count: 0, until: 0 };
+  f.count += 1;
+  if (f.count >= LOCK_THRESHOLD) { f.until = Date.now() + LOCK_MS; f.count = 0; }
+  fails.set(key, f);
+}
+export function clearFails(key) { fails.delete(key); }
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, f] of fails) if ((!f.until || now > f.until) && !f.count) fails.delete(k);
+}, 5 * 60 * 1000).unref();

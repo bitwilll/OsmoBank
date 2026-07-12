@@ -27,25 +27,46 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
+  // MITM defense: force HTTPS for 2 years (browsers ignore this over plain HTTP,
+  // so it is only enforced once served over TLS). upgrade-insecure-requests in the
+  // CSP additionally rewrites any http:// subresource to https:// before it leaves.
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  // Lock down powerful features; WebAuthn (passkeys) is allowed only for same-origin.
+  res.setHeader('Permissions-Policy',
+    'publickey-credentials-get=(self), publickey-credentials-create=(self), ' +
+    'geolocation=(), camera=(), microphone=(), usb=(), payment=(self), interest-cohort=()');
+  // Isolate the browsing context so a malicious opener/embedder cannot reach it.
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src https://fonts.gstatic.com; img-src 'self' data:; " +
+    "font-src https://fonts.gstatic.com; img-src 'self' data:; object-src 'none'; " +
     "connect-src 'self' https://mempool.space https://blockstream.info " +
     "https://ethereum-rpc.publicnode.com https://eth.llamarpc.com " +
     "https://ethereum-sepolia-rpc.publicnode.com https://rpc.sepolia.org; " +
-    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests");
   next();
 });
 
-// CSRF: state-changing requests must originate from this site.
+// CSRF: state-changing requests must be same-origin. Primary defense is the
+// SameSite=Strict session cookie (never sent cross-site); these checks are
+// belt-and-suspenders using Origin and the Fetch metadata header.
 app.use((req, res, next) => {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     const origin = req.headers.origin;
+    const host = req.headers.host;
     if (origin) {
-      const host = req.headers.host;
       let originHost = null;
       try { originHost = new URL(origin).host; } catch { /* malformed */ }
       if (originHost !== host) return next(new ApiError(403, 'Cross-origin request rejected'));
+    }
+    // Fetch metadata: modern browsers stamp where the request came from. Reject
+    // anything a browser marks as cross-site/same-site (only same-origin, or a
+    // non-browser 'none', is allowed) — this also covers requests with no Origin.
+    const site = req.headers['sec-fetch-site'];
+    if (site && site !== 'same-origin' && site !== 'none') {
+      return next(new ApiError(403, 'Cross-site request rejected'));
     }
     if (req.path.startsWith('/api/') && !req.is('json') && req.headers['content-length'] > 0) {
       return next(new ApiError(415, 'JSON body required'));

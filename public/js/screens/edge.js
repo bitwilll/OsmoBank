@@ -1,5 +1,5 @@
 /* Investor's Edge: live portfolio analytics from GET /api/portfolio.
- * Export button streams the caller's ledger CSV from /api/reports/export. */
+ * Export button opens a CSV/PDF chooser → GET /api/portfolio/export?format=csv|pdf. */
 
 const PALETTE = ['#c47b10', '#4098d7', '#8a8a8a', '#2fae7d', '#8752f3'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -29,6 +29,45 @@ const put = (el, text, color) => {
 const plColor = (v) => (v >= 0 ? GRN : RED);
 const sign = (v) => (v >= 0 ? '+' : '−');
 
+// ---- design-styled element helpers (mirrors app.js modal conventions) -------
+const mk = (tag, css, text) => {
+  const n = document.createElement(tag);
+  if (css) n.style.cssText = css;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+const modalDescCss = "font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);letter-spacing:.06em;margin:2px 0 4px";
+const pillBaseCss = "display:flex;align-items:center;justify-content:center;gap:9px;padding:13px 0;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px";
+const pillSolidCss = pillBaseCss + ';background:var(--ink,#0a0a0a);color:var(--inv,#fff)';
+const pillGhostCss = pillBaseCss + ';border:1px solid var(--dt,#d9d9d9);color:var(--ink,#0a0a0a)';
+const pillIconCss = "font-family:'Material Symbols Sharp';font-size:18px;line-height:1";
+
+/** CSV/PDF export chooser for the Investor's Edge report. */
+function openExportChooser(ctx) {
+  const m = ctx.buildModal('EXPORT EDGE REPORT', 'download');
+  m.body.appendChild(mk('div', modalDescCss, 'POSITIONS · P/L · DIVIDENDS · CHOOSE A FORMAT'));
+
+  const makeBtn = (format, icon, label, css) => {
+    const b = mk('div', css);
+    b.setAttribute('role', 'button');
+    b.setAttribute('tabindex', '0');
+    b.append(mk('span', pillIconCss, icon), document.createTextNode(label));
+    const go = () => {
+      window.open(`/api/portfolio/export?format=${format}`, '_blank');
+      ctx.toast(`EDGE REPORT EXPORTED · ${format.toUpperCase()}`);
+      m.close();
+    };
+    b.addEventListener('click', go);
+    b.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
+    return b;
+  };
+
+  m.body.appendChild(makeBtn('csv', 'table_view', 'Download CSV', pillSolidCss));
+  m.body.appendChild(makeBtn('pdf', 'picture_as_pdf', 'Download PDF', pillGhostCss));
+}
+
 /** $21.8K-style compact dollars (matches the design's headline format). */
 function kfmt(fmt, v) {
   const n = Number(v ?? 0);
@@ -52,10 +91,7 @@ export async function hydrate(root, ctx) {
 
   if (!root.dataset.hydrated) {
     root.dataset.hydrated = '1';
-    ctx.setAction('demoExport', () => {
-      window.open('/api/reports/export', '_blank');
-      ctx.toast('EDGE REPORT EXPORTED · CSV');
-    });
+    ctx.setAction('demoExport', () => openExportChooser(ctx));
   }
 
   let p;
