@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "osmobank",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8471", "--bind", "127.0.0.1"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--experimental-sqlite", "server/index.js"],
       "port": 8471
     }
   ]

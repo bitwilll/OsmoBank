@@ -1,0 +1,54 @@
+<div data-screen-label="Signup" style="min-height:100vh;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px clamp(20px,4vw,48px)">
+    <div data-action="goHome" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <div style="position:relative;width:27px;height:20px">
+        <div style="position:absolute;left:0;top:1px;width:17px;height:17px;border:2px solid var(--ink,#0a0a0a);border-radius:50%"></div>
+        <div style="position:absolute;left:8px;top:1px;width:17px;height:17px;border:2px solid var(--ink,#0a0a0a);border-radius:50%"></div>
+        <div style="position:absolute;left:11.5px;top:8px;width:4px;height:4px;border-radius:50%;background:var(--red,#e0342b)"></div>
+      </div>
+      <div style="font-size:16px;font-weight:700">Osmo<span style="font-weight:400">Bank</span></div>
+    </div>
+    <div data-action="goLogin" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:var(--mut,#757575);cursor:pointer" class="obh-0">HAVE A VAULT? LOG IN →</div>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="width:min(460px,92vw)">
+      <div style="text-align:center">
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:34px;letter-spacing:.02em">BECOME AN OWNER</div>
+        <div style="font-size:14px;color:var(--mut,#757575);margin-top:8px">One account. Wallets, cards, ventures, votes.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--mut,#757575)">
+        <span style="display:flex;align-items:center;gap:6px;color:var(--ink,#0a0a0a)"><span style="width:6px;height:6px;border-radius:50%;background:var(--red,#e0342b);display:inline-block"></span>ACCOUNT</span>
+        <span style="width:26px;border-top:1px dotted var(--dt2,#c6c6c6)"></span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:var(--dt,#d9d9d9);display:inline-block"></span>SECURE VAULT</span>
+        <span style="width:26px;border-top:1px dotted var(--dt2,#c6c6c6)"></span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:var(--dt,#d9d9d9);display:inline-block"></span>FUND</span>
+      </div>
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:24px;margin-top:16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:7px">FULL NAME</div>
+            <input placeholder="Amara Okafor" style="width:100%;box-sizing:border-box;padding:13px 16px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+          </div>
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:7px">@HANDLE</div>
+            <input placeholder="@amara" style="width:100%;box-sizing:border-box;padding:13px 16px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+          </div>
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:7px">EMAIL</div>
+          <input placeholder="you@anywhere.earth" style="width:100%;box-sizing:border-box;padding:13px 16px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:7px">PASSPHRASE</div>
+          <input type="password" placeholder="12+ characters" style="width:100%;box-sizing:border-box;padding:13px 16px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13.5px" />
+        </div>
+        <div style="border:1px dotted var(--dt2,#c6c6c6);border-radius:12px;padding:12px 16px;display:flex;gap:10px;align-items:flex-start">
+          <span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--red,#e0342b);flex:none;margin-top:2px">key</span>
+          <div style="font-size:12.5px;line-height:1.6;color:var(--mut,#757575)">On the next step we generate your <span style="color:var(--ink,#0a0a0a);font-weight:600">recovery phrase</span>. It is shown once and never stored by OsmoBank.</div>
+        </div>
+        <div data-action="submitSignup" role="button" tabindex="0" style="padding:14px 0;text-align:center;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14.5px;font-weight:600;cursor:pointer" class="obh-3">Create account &amp; provision wallets<span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1;vertical-align:-3px;margin-left:7px">arrow_outward</span></div>
+      </div>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--fnt,#a3a3a3);margin-top:18px">BY JOINING YOU RECEIVE 10 OSM · GOVERNANCE ELIGIBLE AFTER 30 DAYS</div>
+    </div>
+  </div>
+</div>

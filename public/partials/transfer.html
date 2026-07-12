@@ -1,0 +1,101 @@
+<div data-screen-label="Transfer">
+  <div style="position:sticky;top:0;z-index:50;display:flex;align-items:center;flex-wrap:wrap;gap:12px 22px;padding:12px clamp(16px,3vw,44px);background:var(--sf,#fff);border-bottom:1px solid var(--hr,#e4e4e4)">
+    <div data-action="goHome" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <div style="position:relative;width:27px;height:20px">
+        <div style="position:absolute;left:0;top:1px;width:17px;height:17px;border:2px solid var(--ink,#0a0a0a);border-radius:50%"></div>
+        <div style="position:absolute;left:8px;top:1px;width:17px;height:17px;border:2px solid var(--ink,#0a0a0a);border-radius:50%"></div>
+        <div style="position:absolute;left:11.5px;top:8px;width:4px;height:4px;border-radius:50%;background:var(--red,#c47b10)"></div>
+      </div>
+      <div style="font-size:16px;font-weight:700">Osmo<span style="font-weight:400">Bank</span></div>
+    </div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--mut,#757575)">
+      <div data-action="goDash" role="button" tabindex="0" style="cursor:pointer" class="obh-0">OVERVIEW</div>
+      <div data-action="goWallets" role="button" tabindex="0" style="cursor:pointer" class="obh-0">WALLETS</div>
+      <div style="display:flex;align-items:center;gap:6px;color:var(--ink,#0a0a0a);font-weight:600;cursor:pointer"><span style="width:5px;height:5px;border-radius:50%;background:var(--red,#c47b10);display:inline-block"></span>TRANSFERS</div>
+      <div data-action="goCards" role="button" tabindex="0" style="cursor:pointer" class="obh-0">CARDS</div>
+      <div data-action="goVentures" role="button" tabindex="0" style="cursor:pointer" class="obh-0">VENTURES</div>
+      <div data-action="goReports" role="button" tabindex="0" style="cursor:pointer" class="obh-0">REPORTS</div>
+      <div data-action="goGov" role="button" tabindex="0" style="cursor:pointer" class="obh-0">GOVERNANCE</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+      <div data-action="toggleTheme" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--mut,#757575);cursor:pointer;border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:6px 12px" class="obh-1"><span data-text="themeLabel"></span></div>
+      <div data-action="profile" role="button" tabindex="0" data-slot="avatarInitials" style="width:32px;height:32px;border-radius:50%;background:var(--ink,#0a0a0a);color:var(--inv,#fff);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;cursor:pointer">AO</div>
+    </div>
+  </div>
+
+  <div style="max-width:1100px;margin:0 auto;padding:clamp(22px,4vw,36px) clamp(16px,3vw,44px) 40px">
+    <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(30px,4vw,42px);letter-spacing:.02em">SEND TOKENS</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);margin-top:6px;letter-spacing:.1em">TO ANY ADDRESS, CHAIN, OR @MEMBER — SETTLES IN SECONDS</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:24px">
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:clamp(18px,3vw,26px);display:flex;flex-direction:column;gap:16px">
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:8px">FROM</div>
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid var(--dt,#d9d9d9);border-radius:14px;padding:13px 16px;cursor:pointer" class="obh-2">
+            <span style="width:11px;height:11px;border-radius:50%;background:#f7931a;display:inline-block"></span>
+            <div style="flex:1"><div style="font-size:14.5px;font-weight:600">Bitcoin wallet</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)">0.82140 BTC AVAILABLE</div></div>
+            <span style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;color:var(--mut,#757575)">unfold_more</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:8px">TO</div>
+          <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--dt,#d9d9d9);border-radius:14px;padding:5px 8px 5px 16px">
+            <span style="font-family:'Material Symbols Sharp';font-size:18px;line-height:1;color:var(--mut,#757575)">alternate_email</span>
+            <input placeholder="@handle or bc1q… address" style="flex:1;border:none;background:transparent;color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:10px 0" />
+            <div data-action="demoCard" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--mut,#757575);border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:8px 13px;cursor:pointer" class="obh-1"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">qr_code_scanner</span>SCAN</div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:8px"><span>AMOUNT</span><span style="cursor:pointer;color:var(--red,#c47b10)">MAX</span></div>
+          <div style="display:flex;align-items:baseline;gap:10px;border:1px solid var(--dt,#d9d9d9);border-radius:14px;padding:14px 16px">
+            <input placeholder="0.0000" style="flex:1;min-width:0;border:none;background:transparent;color:var(--ink,#0a0a0a);font-family:'Doto',monospace;font-weight:900;font-size:30px;padding:0" />
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--mut,#757575)">BTC ≈ $0.00</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:8px">NETWORK FEE</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px">
+            <div style="text-align:center;border:1px dotted var(--dt2,#c6c6c6);border-radius:12px;padding:11px 6px;cursor:pointer;color:var(--mut,#757575)" class="obh-2">ECO<br><span style="color:var(--fnt,#a3a3a3)">~40 MIN</span></div>
+            <div style="text-align:center;border:1px solid var(--ink,#0a0a0a);border-radius:12px;padding:11px 6px;cursor:pointer;font-weight:600">STANDARD<br><span style="color:var(--mut,#757575)">~10 MIN</span></div>
+            <div style="text-align:center;border:1px dotted var(--dt2,#c6c6c6);border-radius:12px;padding:11px 6px;cursor:pointer;color:var(--mut,#757575)" class="obh-2">PRIORITY<br><span style="color:var(--fnt,#a3a3a3)">~2 MIN</span></div>
+          </div>
+        </div>
+        <div style="border-top:1px dotted var(--dt2,#c6c6c6);padding-top:14px;display:flex;flex-direction:column;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575)">
+          <div style="display:flex;justify-content:space-between"><span>FEE (STANDARD)</span><span style="color:var(--ink,#0a0a0a)">0.00002 BTC · $1.21</span></div>
+          <div style="display:flex;justify-content:space-between"><span>ARRIVES</span><span style="color:var(--ink,#0a0a0a)">~10 MIN · 1 CONF</span></div>
+        </div>
+        <div data-action="demoTransfer" role="button" tabindex="0" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:15px 0;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14.5px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">north_east</span>Review &amp; sign</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:20px">
+          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">group</span>RECENT RECIPIENTS</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px dotted var(--dt,#d9d9d9);margin-top:6px;cursor:pointer">
+            <div style="width:34px;height:34px;border-radius:50%;background:var(--ink,#0a0a0a);color:var(--inv,#fff);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">KJ</div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:600">@kenji</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">LAST: 0.012 BTC · TODAY</div></div>
+            <span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--mut,#757575)">north_east</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px dotted var(--dt,#d9d9d9);cursor:pointer">
+            <div style="width:34px;height:34px;border-radius:50%;border:1px solid var(--dt,#d9d9d9);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">MB</div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:600">@mbeki</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">LAST: 300 USDC · JUL 02</div></div>
+            <span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--mut,#757575)">north_east</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;cursor:pointer">
+            <div style="width:34px;height:34px;border-radius:50%;border:1px solid var(--dt,#d9d9d9);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">AD</div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:600">Atlas Dry Ports</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">VENTURE · STAKE WALLET</div></div>
+            <span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--mut,#757575)">north_east</span>
+          </div>
+        </div>
+        <div style="background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:20px;padding:20px">
+          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;opacity:.6"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">swap_horiz</span>SWAP INSTEAD?</div>
+          <div style="font-size:14.5px;font-weight:600;margin-top:8px;line-height:1.45">Convert between any two assets at treasury rates — 0.1% member fee.</div>
+          <div data-action="demoTransfer" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:10px 20px;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3">Open swap<span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">arrow_outward</span></div>
+        </div>
+        <div style="border:1px dotted var(--dt2,#c6c6c6);border-radius:20px;padding:16px 20px;display:flex;gap:10px;align-items:flex-start">
+          <span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--red,#c47b10);margin-top:2px">info</span>
+          <div style="font-size:13px;line-height:1.6;color:var(--mut,#757575)">Transfers above <span style="color:var(--ink,#0a0a0a);font-weight:600">$10,000</span> require your hardware key. Daily member limit: $50,000.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

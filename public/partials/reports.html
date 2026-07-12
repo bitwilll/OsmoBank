@@ -1,0 +1,118 @@
+<div data-screen-label="Reports">
+  <div style="position:sticky;top:0;z-index:50;display:flex;align-items:center;flex-wrap:wrap;gap:12px 22px;padding:12px clamp(16px,3vw,44px);background:var(--sf,#fff);border-bottom:1px solid var(--hr,#e4e4e4)">
+    <div data-action="goHome" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <div style="position:relative;width:27px;height:20px">
+        <div style="position:absolute;left:0;top:1px;width:17px;height:17px;border:2px solid var(--ink,#0a0a0a);border-radius:50%"></div>
+        <div style="position:absolute;left:8px;top:1px;width:17px;height:17px;border:2px solid var(--ink,#0a0a0a);border-radius:50%"></div>
+        <div style="position:absolute;left:11.5px;top:8px;width:4px;height:4px;border-radius:50%;background:var(--red,#c47b10)"></div>
+      </div>
+      <div style="font-size:16px;font-weight:700">Osmo<span style="font-weight:400">Bank</span></div>
+    </div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--mut,#757575)">
+      <div data-action="goDash" role="button" tabindex="0" style="cursor:pointer" class="obh-0">OVERVIEW</div>
+      <div data-action="goWallets" role="button" tabindex="0" style="cursor:pointer" class="obh-0">WALLETS</div>
+      <div data-action="goCards" role="button" tabindex="0" style="cursor:pointer" class="obh-0">CARDS</div>
+      <div data-action="goVentures" role="button" tabindex="0" style="cursor:pointer" class="obh-0">VENTURES</div>
+      <div style="display:flex;align-items:center;gap:6px;color:var(--ink,#0a0a0a);font-weight:600;cursor:pointer"><span style="width:5px;height:5px;border-radius:50%;background:var(--red,#c47b10);display:inline-block"></span>REPORTS</div>
+      <div data-action="goGoals" role="button" tabindex="0" style="cursor:pointer" class="obh-0">GOALS</div>
+      <div data-action="goGov" role="button" tabindex="0" style="cursor:pointer" class="obh-0">GOVERNANCE</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+      <div data-action="toggleTheme" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--mut,#757575);cursor:pointer;border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:6px 12px" class="obh-1"><span data-text="themeLabel"></span></div>
+      <div data-action="profile" role="button" tabindex="0" data-slot="avatarInitials" style="width:32px;height:32px;border-radius:50%;background:var(--ink,#0a0a0a);color:var(--inv,#fff);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;cursor:pointer">AO</div>
+    </div>
+  </div>
+
+  <div style="max-width:1320px;margin:0 auto;padding:clamp(22px,4vw,36px) clamp(16px,3vw,44px) 40px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(30px,4vw,42px);letter-spacing:.02em">REPORTS</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);margin-top:6px;letter-spacing:.1em">STATEMENTS · DIVIDENDS · RECEIPTS · TAX LOTS</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap">
+        <div data-action="demoExport" role="button" tabindex="0" style="display:flex;align-items:center;gap:7px;padding:11px 22px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">download</span>Export CSV / PDF</div>
+        <div data-action="demoImport" role="button" tabindex="0" style="display:flex;align-items:center;gap:7px;padding:11px 22px;border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;background:var(--sf,#fff)" class="obh-2"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">upload</span>Import</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-top:24px">
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">NET WORTH · YTD</div>
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px;color:var(--grn,#17a562)">+$11,204</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">+9.6% SINCE JAN 01</div>
+      </div>
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">DIVIDENDS · YTD</div>
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">$1,286</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">ACROSS 4 VENTURES · 7 PAYOUTS</div>
+      </div>
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">FEES PAID · YTD</div>
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">$42.80</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">100% RECYCLED TO TREASURY</div>
+      </div>
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">RECEIPTS FILED</div>
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:10px">214</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:4px">AUTO-MATCHED TO CARD SPEND</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:22px">
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:6px 22px 10px">
+        <div style="display:flex;align-items:center;gap:7px;padding:16px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">payments</span>DIVIDEND LEDGER</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+          <div style="flex:1"><div style="font-size:14px;font-weight:600">Helios Grid · Q3</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 30 · ESTIMATED</div></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">$412.08</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--red,#c47b10);border:1px solid var(--reds,#f0b9b5);border-radius:100px;padding:3px 10px">UPCOMING</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+          <div style="flex:1"><div style="font-size:14px;font-weight:600">Helios Grid · Q2</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 09 · TX 0x8f…21a</div></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+$96.40</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">PAID</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+          <div style="flex:1"><div style="font-size:14px;font-weight:600">Ferrymill · Q2</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUN 28 · TX 0x2c…e90</div></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+$124.20</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">PAID</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+          <div style="flex:1"><div style="font-size:14px;font-weight:600">Atlas Dry Ports · Q2</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUN 15 · TX 0x77…b04</div></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+$82.90</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">PAID</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+          <div style="flex:1"><div style="font-size:14px;font-weight:600">Nova Reef · Q2</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUN 02 · TX 0x4a…c77</div></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+$71.10</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">PAID</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:6px 22px 10px">
+          <div style="display:flex;align-items:center;gap:7px;padding:16px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">description</span>MONTHLY STATEMENTS</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+            <div style="flex:1;font-size:14px;font-weight:600">June 2026</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">148 TX · 2.1 MB</div>
+            <span data-action="demoExport" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:18px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">download</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+            <div style="flex:1;font-size:14px;font-weight:600">May 2026</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">131 TX · 1.8 MB</div>
+            <span data-action="demoExport" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:18px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">download</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px dotted var(--dt,#d9d9d9)">
+            <div style="flex:1;font-size:14px;font-weight:600">April 2026</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">122 TX · 1.7 MB</div>
+            <span data-action="demoExport" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:18px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">download</span>
+          </div>
+        </div>
+        <div style="background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:20px;padding:22px">
+          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;opacity:.6"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">receipt_long</span>RECEIPT VAULT</div>
+          <div style="font-size:14.5px;font-weight:600;margin-top:8px;line-height:1.45">214 receipts auto-filed this year. Snap or forward any receipt — we match it to card spend.</div>
+          <div data-action="demoImport" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:10px 20px;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">photo_camera</span>Add receipt</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
