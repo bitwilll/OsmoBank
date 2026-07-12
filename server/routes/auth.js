@@ -7,6 +7,13 @@ import {
 const HANDLE_RE = /^[a-z0-9_]{2,24}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+// Shared limiter for auth endpoints. NOTE: registration returns 201-vs-409, which
+// can confirm whether an email/handle already exists (a low-severity enumeration
+// leak flagged in the security audit). A hard fix requires an email-verification
+// flow (create-on-confirm) so the response never reveals existence — out of scope
+// without mail infrastructure. The rate limit below caps how fast an unauthenticated
+// caller can probe; a much tighter cap was rejected because it would also block
+// legitimate signups behind shared NAT/corporate IPs. Documented as accepted risk.
 const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 30 });
 
 export default function mount(app) {

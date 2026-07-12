@@ -96,6 +96,7 @@ test('overview: real counts, treasury, queues, newest members, network', async (
     assert.equal(typeof m.joinedAgo, 'string');
     assert.ok(['verified', 'pending'].includes(m.kyc));
     assert.ok(['active', 'review', 'frozen'].includes(m.status));
+    assert.ok(['member', 'manager', 'admin'].includes(m.role)); // role drives the console's per-row selector
   }
   const tunde = o.newestMembers.find((m) => m.handle === 'tunde');
   assert.equal(tunde.kyc, 'pending'); // status 'review' → KYC pending

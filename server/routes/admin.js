@@ -74,9 +74,9 @@ export default function mount(app) {
         }));
 
       const newestMembers = db.prepare(
-        'SELECT id, handle, status, created_at FROM users ORDER BY created_at DESC, id DESC LIMIT 5').all()
+        'SELECT id, handle, role, status, created_at FROM users ORDER BY created_at DESC, id DESC LIMIT 5').all()
         .map((u) => ({
-          id: u.id, handle: u.handle, memberNo: MEMBER_NO_BASE + u.id,
+          id: u.id, handle: u.handle, role: u.role, memberNo: MEMBER_NO_BASE + u.id,
           joinedAgo: joinedAgo(u.created_at),
           kyc: u.status === 'review' ? 'pending' : 'verified',
           status: u.status,

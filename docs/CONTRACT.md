@@ -191,7 +191,7 @@ globally in index.js — modules don't re-check).
 - `GET /api/admin/overview` → `{members, membersThisWeek, treasury, volume24h, transfers24h,
   needsAction: {listings, payoutsDue, kyc}, listingQueue: [{ventureId, name, blurb, status}],
   payoutQueue: [{ventureId, name, due, estTotal, holders}], newestMembers: [{id, handle,
-  memberNo, joinedAgo, kyc, status}], network: {block, latencyMs, uptimePct, signers}}`
+  role, memberNo, joinedAgo, kyc, status}], network: {block, latencyMs, uptimePct, signers}}`
   (treasury = SUM of all USDC ledger; network stats may be synthesized deterministically)
 - `GET /api/admin/users?q=` → `{users: [{id, name, handle, email, role, status, createdAt, balance}]}`
 - `PATCH /api/admin/users/:id` `{role?, status?}` — assign managers/roles. Cannot demote
