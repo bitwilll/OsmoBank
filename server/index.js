@@ -10,6 +10,8 @@ import mountPortfolio from './routes/portfolio.js';
 import mountMoney from './routes/money.js';
 import mountDao from './routes/dao.js';
 import mountAdmin from './routes/admin.js';
+import mountSecurity from './routes/security.js';
+import mountCards from './routes/cards.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8471);
@@ -61,6 +63,8 @@ mountPortfolio(app);
 mountMoney(app);
 mountDao(app);
 mountAdmin(app);
+mountSecurity(app);
+mountCards(app);
 
 app.use('/api', (_req, _res, next) => next(new ApiError(404, 'Not found')));
 

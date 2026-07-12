@@ -1,8 +1,15 @@
+import { randomBytes } from 'node:crypto';
+import { generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { db, tx, balance, audit, hashPass } from '../db.js';
 import {
   ApiError, str, num, verifyPass, createSession, destroySession,
-  requireAuth, rateLimit, publicUser,
+  requireAuth, rateLimit, publicUser, readCookie,
 } from '../lib/util.js';
+import { verifyTotp } from '../lib/totp.js';
+import {
+  twoFactorEnabled, saveChallenge, takeChallenge, b64url, fromB64url, RP_ID, ORIGIN,
+} from './security.js';
+import { issueCard } from './cards.js';
 
 const HANDLE_RE = /^[a-z0-9_]{2,24}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -37,6 +44,7 @@ export default function mount(app) {
           "INSERT INTO ledger (user_id, currency, delta, kind, memo) VALUES (?,?,?,'seed','founding balance')");
         led.run(id, 'USDC', 12450);
         led.run(id, 'OSM', 10);
+        issueCard(id); // every new member gets a virtual OsmoCard
         audit(id, 'register', `user:${id}`, handle);
         return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       });
@@ -61,6 +69,14 @@ export default function mount(app) {
       if (!ok) throw new ApiError(401, 'Wrong identifier or passphrase');
       if (user.status === 'frozen') throw new ApiError(403, 'Account frozen — contact an operator');
 
+      // Two-factor step-up: if enabled, a valid TOTP code is required to finish.
+      if (twoFactorEnabled(user.id)) {
+        const code = req.body?.totpCode ? String(req.body.totpCode) : '';
+        const secret = db.prepare('SELECT secret FROM user_2fa WHERE user_id = ?').get(user.id)?.secret;
+        if (!code) return res.status(401).json({ error: 'Two-factor code required', twoFactorRequired: true });
+        if (!secret || !verifyTotp(secret, code)) throw new ApiError(401, 'That two-factor code is not valid');
+      }
+
       createSession(res, user.id);
       audit(user.id, 'login', `user:${user.id}`);
       res.json({ user: publicUser(user) });
@@ -70,6 +86,58 @@ export default function mount(app) {
   app.post('/api/auth/logout', (req, res) => {
     destroySession(req, res);
     res.json({ ok: true });
+  });
+
+  // ---- passkey (WebAuthn) login -------------------------------------------
+  app.post('/api/auth/passkey/login/options', authLimiter, async (req, res, next) => {
+    try {
+      // Optional identifier narrows allowCredentials; otherwise a discoverable
+      // (resident) credential is used. We never reveal whether the user exists.
+      let allow = [];
+      if (req.body?.identifier) {
+        const id = String(req.body.identifier).toLowerCase().replace(/^@/, '');
+        const u = db.prepare('SELECT id FROM users WHERE email = ? OR handle = ?').get(id, id);
+        if (u) allow = db.prepare('SELECT cred_id FROM passkeys WHERE user_id = ?').all(u.id).map((c) => ({ id: c.cred_id }));
+      }
+      const options = await generateAuthenticationOptions({
+        rpID: RP_ID, userVerification: 'preferred',
+        allowCredentials: allow.length ? allow : undefined,
+      });
+      const token = randomBytes(24).toString('hex');
+      saveChallenge(`login:${token}`, null, options.challenge, 'login');
+      res.setHeader('Set-Cookie', `ob_pk=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=300`);
+      res.json(options);
+    } catch (e) { next(e); }
+  });
+
+  app.post('/api/auth/passkey/login/verify', authLimiter, async (req, res, next) => {
+    try {
+      const token = readCookie(req, 'ob_pk');
+      if (!token || !/^[0-9a-f]{48}$/.test(token)) throw new ApiError(400, 'Passkey login expired — try again');
+      const ch = takeChallenge(`login:${token}`, 'login');
+      if (!ch) throw new ApiError(400, 'Passkey login expired — try again');
+      const response = req.body?.response;
+      if (!response || !response.id) throw new ApiError(400, 'Malformed passkey response');
+
+      const pk = db.prepare('SELECT * FROM passkeys WHERE cred_id = ?').get(response.id);
+      if (!pk) throw new ApiError(401, 'Unknown passkey');
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(pk.user_id);
+      if (!user || user.status === 'frozen') throw new ApiError(403, 'Account unavailable');
+
+      const verification = await verifyAuthenticationResponse({
+        response, expectedChallenge: ch.challenge, expectedOrigin: ORIGIN, expectedRPID: RP_ID,
+        credential: { id: pk.cred_id, publicKey: fromB64url(pk.public_key), counter: pk.counter },
+      });
+      if (!verification.verified) throw new ApiError(401, 'Passkey verification failed');
+
+      db.prepare("UPDATE passkeys SET counter = ?, last_used_at = datetime('now') WHERE id = ?")
+        .run(verification.authenticationInfo.newCounter, pk.id);
+      // the single-use challenge is already consumed (takeChallenge deletes it) and
+      // the ob_pk cookie is short-lived; createSession now sets the session cookie.
+      createSession(res, user.id);
+      audit(user.id, 'login.passkey', `user:${user.id}`);
+      res.json({ user: publicUser(user) });
+    } catch (e) { next(e); }
   });
 
   app.get('/api/me', requireAuth, (req, res) => {

@@ -187,13 +187,22 @@ export function buildModal(title, icon = 'diamond') {
   const body = document.createElement('div');
   card.appendChild(body);
 
-  const close = () => { overlay.remove(); document.removeEventListener('keydown', esc); };
+  const handle = { onClose: null };
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    document.removeEventListener('keydown', esc);
+    if (handle.onClose) handle.onClose();
+  };
   const esc = (e) => { if (e.key === 'Escape') close(); };
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   x.addEventListener('click', close);
   document.addEventListener('keydown', esc);
   document.body.appendChild(overlay);
-  return { overlay, card, body, close };
+  handle.overlay = overlay; handle.card = card; handle.body = body; handle.close = close;
+  return handle; // set handle.onClose to run a callback on ANY dismissal (button/X/ESC/overlay)
 }
 
 const el = (tag, css, text) => {
@@ -238,12 +247,12 @@ async function provisionWalletFlow() {
   m.body.appendChild(pass);
 
   await new Promise((resolve) => {
+    m.onClose = resolve; // dismissing the modal (X/ESC/overlay) still proceeds to the vault
     const done = el('div', btnCss, 'I saved my phrase — open my vault');
     done.addEventListener('click', async () => {
       try {
         if (pass.value) await wallet.saveOnDevice(me.user.handle, pass.value);
-        m.close();
-        resolve();
+        m.close(); // triggers onClose → resolve
       } catch (e) { errToast(e); }
     });
     m.body.appendChild(done);

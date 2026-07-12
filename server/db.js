@@ -118,6 +118,37 @@ CREATE TABLE IF NOT EXISTS fundraisers (
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL,
   subject TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS user_2fa (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  secret TEXT NOT NULL,                              -- base32 TOTP secret (pending until enabled)
+  enabled INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS passkeys (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+  cred_id TEXT UNIQUE NOT NULL,                      -- base64url credential id
+  public_key TEXT NOT NULL,                          -- base64url COSE public key
+  counter INTEGER NOT NULL DEFAULT 0,
+  transports TEXT, label TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_used_at TEXT);
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+  id TEXT PRIMARY KEY,                               -- session/flow token
+  user_id INTEGER,                                   -- NULL for a login (pre-auth) flow
+  challenge TEXT NOT NULL, purpose TEXT NOT NULL,    -- 'register' | 'login'
+  expires_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS cards (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+  label TEXT NOT NULL DEFAULT 'OsmoCard', brand TEXT NOT NULL DEFAULT 'OSMO',
+  pan TEXT NOT NULL, last4 TEXT NOT NULL, exp_month INTEGER NOT NULL,
+  exp_year INTEGER NOT NULL, cvv TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'virtual' CHECK (kind IN ('virtual','physical')),
+  frozen INTEGER NOT NULL DEFAULT 0,
+  daily_limit REAL NOT NULL DEFAULT 2000,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS gift_cards (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+  brand TEXT NOT NULL, amount REAL NOT NULL, code TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
 `);
 
 // ---- one-time seed -------------------------------------------------------
@@ -140,9 +171,24 @@ if (empty) {
       ['lena', 'Lena Fischer', 'lena@osmo.money', 'active'],
     ].map(([h, n, e, s]) => Number(addUser.run(h, n, e, hashPass(randomBytes(12).toString('hex')), 'member', s).lastInsertRowid));
 
+    // luhn-complete a 15-digit body → valid 16-digit PAN (matches routes/cards.js)
+    const luhn = (body) => {
+      let sum = 0, alt = true;
+      for (let i = body.length - 1; i >= 0; i--) {
+        let d = body.charCodeAt(i) - 48;
+        if (alt) { d *= 2; if (d > 9) d -= 9; }
+        sum += d; alt = !alt;
+      }
+      return body + String((10 - (sum % 10)) % 10);
+    };
+    const addCard = db.prepare(
+      `INSERT INTO cards (user_id, label, brand, pan, last4, exp_month, exp_year, cvv, kind, daily_limit)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`);
     for (const id of [adminId, marisolId, ...demo]) {
       seedLedger.run(id, 'USDC', 12450, );
       seedLedger.run(id, 'OSM', id === adminId ? 84300 : 10);
+      const pan = luhn('473501' + String(1000000000 + id * 7919).slice(-9));
+      addCard.run(id, 'OsmoCard', 'OSMO', pan, pan.slice(-4), 9, 2028, String((id * 137) % 1000).padStart(3, '0'), 'virtual', 2000);
     }
 
     const addVenture = db.prepare(

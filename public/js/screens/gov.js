@@ -1,7 +1,8 @@
 /* Governance screen: live proposal voting, recent proposals, treasury export.
  * Data: GET /api/proposals + ctx.me(); votes via POST /api/proposals/:id/vote. */
 
-const VOTER_BASELINE = 14882; // design-era turnout added to real vote count
+// NOTE: the server (/api/proposals) already folds the synthetic launch-day
+// turnout baseline into `voters`, so the client must not add it again.
 
 let liveProposal = null; // latest live proposal seen by fill(); used by vote action
 
@@ -46,7 +47,7 @@ async function fill(root, ctx) {
     const meter = ctx.slot(root, 'gov.meterFor');
     if (meter) meter.style.width = `${clampPct(p.forPct)}%`;
     put('gov.forPct', `FOR ${fmt.pct(p.forPct, 0)}`);
-    put('gov.tally', `· AGAINST ${fmt.pct(p.againstPct, 0)} · ${fmt.num((p.voters ?? 0) + VOTER_BASELINE)} VOTERS`);
+    put('gov.tally', `· AGAINST ${fmt.pct(p.againstPct, 0)} · ${fmt.num(p.voters ?? 0)} VOTERS`);
   }
   const chip = ctx.slot(root, 'gov.yourVote');
   if (chip) {
