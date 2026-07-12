@@ -2,30 +2,47 @@ import { db, tx, audit } from '../db.js';
 import { ApiError, str, num, oneOf, requireAuth } from '../lib/util.js';
 
 const CHAINS = ['btc-testnet', 'eth-sepolia', 'btc', 'eth', 'sol', 'usdc'];
+const EVM_CHAINS = ['eth', 'eth-sepolia', 'usdc']; // USDC is an ERC-20 → EVM address shape
 const KINDS = ['hd', 'imported', 'watch'];
 
 // Basic per-chain shape checks (registry only — the server never sees keys,
 // so these guard against typos/garbage, not full checksum validation).
-const ETH_RE = /^0x[0-9a-fA-F]{40}$/;                                        // 0x + 40 hex
-const BTC_BECH32_RE = /^(bc1|tb1)[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,87}$/; // bech32 charset
-const BTC_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{25,90}$/;                       // base58 charset
-const SOL_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;                              // base58, 32–44
+// btc vs btc-testnet are distinct networks: a mainnet address (bc1…/1…/3…)
+// can never resolve on testnet (tb1…/m…/n…/2…) and vice versa.
+const ETH_RE = /^0x[0-9a-fA-F]{40}$/;                                            // 0x + 40 hex
+const BTC_MAIN_BECH32_RE = /^bc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,87}$/;      // mainnet bech32
+const BTC_TEST_BECH32_RE = /^tb1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,87}$/;      // testnet bech32
+const BTC_MAIN_BASE58_RE = /^[13][1-9A-HJ-NP-Za-km-z]{24,89}$/;                  // mainnet legacy 1…/3…
+const BTC_TEST_BASE58_RE = /^[mn2][1-9A-HJ-NP-Za-km-z]{24,89}$/;                 // testnet legacy m…/n…/2…
+const SOL_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;                                  // base58, 32–44
+const CTRL_RE = /[\u0000-\u001f\u007f]/;                                          // C0 controls + DEL
 
 function checkAddressShape(chain, address) {
-  if (chain === 'eth' || chain === 'eth-sepolia' || chain === 'usdc') {
-    // USDC is an ERC-20, so usdc addresses take the EVM shape.
+  if (EVM_CHAINS.includes(chain)) {
     if (!ETH_RE.test(address)) {
       throw new ApiError(400, `address is not a valid ${chain} address (expected 0x + 40 hex characters)`);
     }
-  } else if (chain === 'btc' || chain === 'btc-testnet') {
-    if (!BTC_BECH32_RE.test(address) && !BTC_BASE58_RE.test(address)) {
-      throw new ApiError(400, `address is not a valid ${chain} address (expected bech32 or base58)`);
+  } else if (chain === 'btc') {
+    if (!BTC_MAIN_BECH32_RE.test(address) && !BTC_MAIN_BASE58_RE.test(address)) {
+      throw new ApiError(400, 'address is not a valid btc address (expected bech32 bc1… or base58 1…/3…)');
+    }
+  } else if (chain === 'btc-testnet') {
+    if (!BTC_TEST_BECH32_RE.test(address) && !BTC_TEST_BASE58_RE.test(address)) {
+      throw new ApiError(400, 'address is not a valid btc-testnet address (expected bech32 tb1… or base58 m…/n…/2…)');
     }
   } else if (chain === 'sol') {
     if (!SOL_RE.test(address)) {
       throw new ApiError(400, 'address is not a valid sol address (expected base58, 32–44 characters)');
     }
   }
+}
+
+/** Validate a wallet label. Control characters are rejected because node:sqlite
+ *  silently truncates TEXT bindings at an embedded NUL. */
+function cleanLabel(v) {
+  const label = str(v, { min: 1, max: 60, name: 'label' });
+  if (CTRL_RE.test(label)) throw new ApiError(400, 'label must not contain control characters');
+  return label;
 }
 
 const walletJson = (w) => ({
@@ -54,10 +71,14 @@ export default function mount(app) {
   app.post('/api/wallets', requireAuth, (req, res, next) => {
     try {
       const chain = oneOf(str(req.body?.chain, { min: 3, max: 20, name: 'chain' }).toLowerCase(), CHAINS, 'chain');
-      const address = str(req.body?.address, { min: 4, max: 128, name: 'address' });
+      let address = str(req.body?.address, { min: 4, max: 128, name: 'address' });
       checkAddressShape(chain, address);
+      // EVM addresses are case-insensitive (EIP-55 casing is only a checksum) —
+      // normalize so the same account cannot be registered twice under two casings.
+      // btc/sol base58 IS case-sensitive, so those are stored as submitted.
+      if (EVM_CHAINS.includes(chain)) address = address.toLowerCase();
       const label = req.body?.label !== undefined && req.body?.label !== null
-        ? str(req.body.label, { min: 1, max: 60, name: 'label' })
+        ? cleanLabel(req.body.label)
         : null;
       const kind = req.body?.kind !== undefined
         ? oneOf(str(req.body.kind, { min: 2, max: 10, name: 'kind' }).toLowerCase(), KINDS, 'kind')
@@ -82,7 +103,7 @@ export default function mount(app) {
   app.patch('/api/wallets/:id', requireAuth, (req, res, next) => {
     try {
       const existing = ownWallet(req);
-      const label = str(req.body?.label, { min: 1, max: 60, name: 'label' });
+      const label = cleanLabel(req.body?.label);
 
       const wallet = tx(() => {
         db.prepare('UPDATE wallets SET label = ? WHERE id = ?').run(label, existing.id);

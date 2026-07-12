@@ -199,7 +199,10 @@ export default function mount(app) {
         throw new ApiError(400, 'txid must be 8–128 hex characters');
       }
       const toAddress = str(req.body?.toAddress, { min: 4, max: 128, name: 'toAddress' });
-      const amount = round2(num(req.body?.amount, { min: 0.01, max: MAX_AMOUNT, name: 'amount' }));
+      // On-chain amounts are in native units (BTC/ETH/...), not ledger dollars:
+      // no 2dp rounding, and the floor is one satoshi-scale unit, so real
+      // client sends (e.g. 0.0005 BTC, 0.018 ETH) are stored exactly.
+      const amount = num(req.body?.amount, { min: 1e-8, max: MAX_AMOUNT, name: 'amount' });
       const currency = str(req.body?.currency, { min: 2, max: 10, name: 'currency' }).toUpperCase();
       if (!CURRENCY_RE.test(currency)) throw new ApiError(400, 'currency has an invalid format');
 

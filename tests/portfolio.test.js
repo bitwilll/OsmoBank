@@ -1,7 +1,8 @@
 // Tests for server/routes/portfolio.js — GET /api/portfolio, /api/reports,
-// /api/reports/export. Uses only auth endpoints + the seeded DB (marisol holds
-// a seeded 1000 USDC stake in Atlas Dry Ports), so it passes independently of
-// the other route modules.
+// /api/reports/export. Empty/seeded-state tests use only auth endpoints + the
+// seeded DB (marisol holds a seeded 1000 USDC stake in Atlas Dry Ports); the
+// payout round-trip test additionally drives ventures.js invest/payout
+// endpoints to exercise every dividend-dependent branch of this module.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootServer, client, registerMember, loginManager } from './helper.js';

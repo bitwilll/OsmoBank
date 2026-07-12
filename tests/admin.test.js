@@ -189,6 +189,61 @@ test('role/status assignment: happy path, validation, self/last-admin guards', a
   assert.equal((await second.c.get('/api/me')).status, 401);
 });
 
+test('last-admin freeze guard: the last usable admin can never be locked out', async () => {
+  // The sole admin cannot freeze themselves — that would revoke their sessions,
+  // refuse their next login, and leave nobody able to unfreeze them.
+  let r = await admin.c.patch(`/api/admin/users/${admin.user.id}`, { status: 'frozen' });
+  assert.equal(r.status, 400);
+  assert.match(r.json.error, /last admin/i);
+  // The admin session survives and the admin surface still works.
+  assert.equal((await admin.c.get('/api/me')).status, 200);
+  assert.equal((await admin.c.get('/api/admin/overview')).status, 200);
+
+  // Combined role+status writes cannot sneak past the guard either.
+  r = await admin.c.patch(`/api/admin/users/${admin.user.id}`, { role: 'member', status: 'frozen' });
+  assert.equal(r.status, 400);
+  assert.match(r.json.error, /last admin/i);
+
+  // With a second ACTIVE admin present, freezing one of them is allowed.
+  const extra = await registerMember(srv.base);
+  r = await admin.c.patch(`/api/admin/users/${extra.user.id}`, { role: 'admin' });
+  assert.equal(r.status, 200);
+  r = await admin.c.patch(`/api/admin/users/${extra.user.id}`, { status: 'frozen' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.user.status, 'frozen');
+  assert.equal((await extra.c.get('/api/me')).status, 401); // sessions revoked
+
+  // A frozen admin is NOT usable, so it must not satisfy the invariant:
+  // the remaining active admin still cannot be frozen or demoted.
+  r = await admin.c.patch(`/api/admin/users/${admin.user.id}`, { status: 'frozen' });
+  assert.equal(r.status, 400);
+  assert.match(r.json.error, /last admin/i);
+  r = await admin.c.patch(`/api/admin/users/${admin.user.id}`, { role: 'member' });
+  assert.equal(r.status, 400);
+  assert.match(r.json.error, /last admin/i);
+
+  // Demoting the frozen admin is fine — it does not reduce usable admins.
+  r = await admin.c.patch(`/api/admin/users/${extra.user.id}`, { role: 'member' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.user.role, 'member');
+  r = await admin.c.patch(`/api/admin/users/${extra.user.id}`, { status: 'active' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.user.status, 'active');
+
+  // 'review' does not block login or sessions, so it is not guarded — the
+  // sole admin may enter review and can still restore themselves.
+  r = await admin.c.patch(`/api/admin/users/${admin.user.id}`, { status: 'review' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.user.status, 'review');
+  // ...but a review admin still cannot self-freeze into a lockout.
+  r = await admin.c.patch(`/api/admin/users/${admin.user.id}`, { status: 'frozen' });
+  assert.equal(r.status, 400);
+  assert.match(r.json.error, /last admin/i);
+  r = await admin.c.patch(`/api/admin/users/${admin.user.id}`, { status: 'active' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.user.status, 'active');
+});
+
 test('venture approve/reject with manager assignment and state guards', async () => {
   const o = (await admin.c.get('/api/admin/overview')).json;
   const p1 = o.listingQueue.find((v) => v.name === 'Terrace Farms').ventureId;

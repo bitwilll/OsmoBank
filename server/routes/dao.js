@@ -3,9 +3,11 @@ import { ApiError, num, round2, requireAuth } from '../lib/util.js';
 
 // Synthetic launch-day vote baseline, keyed by proposal code. Added as constants
 // inside the aggregates (never materialized as vote rows) so the seeded OSM-042
-// proposal starts near the design split of 68% FOR / 32% AGAINST.
+// proposal starts near the design split of 68% FOR / 32% AGAINST with a
+// plausible voter headcount. `power` participates in quorum; `voters` keeps the
+// displayed headcount coherent with the tally instead of reporting 0.
 const VOTE_BASELINE = {
-  'OSM-042': { for: 10123, against: 4759 },
+  'OSM-042': { for: 10123, against: 4759, voters: 14882 },
 };
 
 // Static presentation data for the single open fundraiser (contract allows static).
@@ -31,18 +33,20 @@ function voteTotals(proposal) {
             COALESCE(SUM(CASE WHEN support = 0 THEN power END), 0) AS againstPower,
             COUNT(*) AS voters
        FROM votes WHERE proposal_id = ?`).get(proposal.id);
-  const base = VOTE_BASELINE[proposal.code] || { for: 0, against: 0 };
+  const base = VOTE_BASELINE[proposal.code] || { for: 0, against: 0, voters: 0 };
   return {
     forPower: agg.forPower + base.for,
     againstPower: agg.againstPower + base.against,
-    voters: agg.voters,
+    voters: agg.voters + base.voters,
   };
 }
 
 function proposalView(proposal, userId) {
   const { forPower, againstPower, voters } = voteTotals(proposal);
   const total = forPower + againstPower;
-  const supply = osmSupply();
+  // Effective supply floors at the participating power so the synthetic baseline
+  // (which is not part of the real OSM ledger) can never push the ratio above 100%.
+  const supply = Math.max(osmSupply(), total);
   const mine = db.prepare('SELECT support FROM votes WHERE proposal_id = ? AND user_id = ?')
     .get(proposal.id, userId);
   return {

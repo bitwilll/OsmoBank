@@ -130,15 +130,23 @@ export default function mount(app) {
       const user = tx(() => {
         const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
         if (!target) throw new ApiError(404, 'No such user');
+        // Last-admin invariant: at least one USABLE admin must remain. Frozen
+        // admins are not usable (login refuses them, loadSession revokes their
+        // sessions), so only active admins other than the target count.
+        const otherUsableAdmins = () => db.prepare(
+          "SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND status = 'active' AND id != ?").get(id).n;
         if (updates.role !== undefined && updates.role !== target.role) {
-          if (target.role === 'admin') {
-            const admins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
-            if (admins <= 1) throw new ApiError(400, 'Cannot demote the last admin');
+          if (target.role === 'admin' && otherUsableAdmins() === 0) {
+            throw new ApiError(400, 'Cannot demote the last admin');
           }
           if (id === req.user.id) throw new ApiError(400, 'You cannot change your own role');
           db.prepare('UPDATE users SET role = ? WHERE id = ?').run(updates.role, id);
         }
         if (updates.status !== undefined && updates.status !== target.status) {
+          const roleNow = updates.role ?? target.role;
+          if (updates.status === 'frozen' && roleNow === 'admin' && otherUsableAdmins() === 0) {
+            throw new ApiError(400, 'Cannot freeze the last admin');
+          }
           db.prepare('UPDATE users SET status = ? WHERE id = ?').run(updates.status, id);
           if (updates.status === 'frozen') {
             db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id); // sign out everywhere

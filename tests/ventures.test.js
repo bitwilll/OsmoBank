@@ -5,10 +5,12 @@ import { bootServer, client, registerMember, loginAdmin, loginManager } from './
 
 // Seeded venture ids (see server/db.js): 1 Helios Grid (active, min 100),
 // 3 Atlas Dry Ports (active, min 250), 5 Kite Mesh (active, min 100, no seed stakes),
-// 7 Terrace Farms (pending). Seed stakes on Helios: rosa 3100 + lena 1500 = 4600.
+// 6 Meridian Water (active, min 100, no seed stakes), 7 Terrace Farms (pending).
+// Seed stakes on Helios: rosa 3100 + lena 1500 = 4600.
 const HELIOS = 1;
 const ATLAS = 3;
 const KITE = 5;
+const MERIDIAN = 6;
 
 let srv, base, admin, manager, member;
 
@@ -294,4 +296,52 @@ test('equal stakes: remainder tie broken deterministically, funds conserved', as
   assert.equal(bShare, 4.17);
   const lenaShare = p2.json.items.find((i) => i.userId !== a.user.id && i.userId !== b.user.id).amount;
   assert.equal(lenaShare, 91.66);
+});
+
+test('tiny payout over many equal stakes never emits a negative item or debits anyone', async () => {
+  // Regression: with 7 equal 100-stakes and total 0.05, every base share
+  // rounds UP to 0.01 (7 cents distributed, 2 cents overshoot). The old
+  // remainder logic dumped the whole -0.02 on items[0], flipping its share
+  // to -0.01 and writing a NEGATIVE 'dividend' ledger delta — a distribution
+  // debiting a member. Shares must be floored at 0 and stay conserved.
+  const holders = [];
+  for (let i = 0; i < 7; i++) {
+    const m = await registerMember(base);
+    assert.equal((await m.c.post(`/api/ventures/${MERIDIAN}/invest`, { amount: 100 })).status, 201);
+    holders.push(m);
+  }
+  const before = new Map(); // 12450 seed - 100 invested = 12350 each
+  for (const h of holders) {
+    before.set(h.user.id, (await h.c.get('/api/me')).json.balances.USDC);
+    assert.equal(before.get(h.user.id), 12350);
+  }
+
+  const p = await manager.c.post(`/api/ventures/${MERIDIAN}/payouts`, { kind: 'dividend', total: 0.05 });
+  assert.equal(p.status, 201);
+  assert.equal(p.json.items.length, 7);
+  for (const item of p.json.items) {
+    assert.ok(item.amount >= 0, `payout item for user ${item.userId} is negative: ${item.amount}`);
+  }
+  const sum = Math.round(p.json.items.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+  assert.equal(sum, 0.05); // funds conserved
+
+  // Repeat the pathological payout: no cumulative drain is possible either.
+  for (let i = 0; i < 3; i++) {
+    const rp = await manager.c.post(`/api/ventures/${MERIDIAN}/payouts`, { kind: 'dividend', total: 0.05 });
+    assert.equal(rp.status, 201);
+    assert.ok(rp.json.items.every((it) => it.amount >= 0));
+  }
+
+  // No negative-delta ledger row was written: every balance is >= pre-payout,
+  // and every yourShare in the history is non-negative.
+  for (const h of holders) {
+    const bal = (await h.c.get('/api/me')).json.balances.USDC;
+    assert.ok(bal >= before.get(h.user.id),
+      `@${h.user.handle} was debited by a distribution: ${before.get(h.user.id)} -> ${bal}`);
+    const hist = await h.c.get(`/api/ventures/${MERIDIAN}/payouts`);
+    assert.equal(hist.status, 200);
+    assert.equal(hist.json.payouts.length, 4);
+    assert.ok(hist.json.payouts.every((x) => x.yourShare >= 0),
+      `@${h.user.handle} has a negative yourShare: ${JSON.stringify(hist.json.payouts)}`);
+  }
 });

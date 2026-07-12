@@ -174,12 +174,29 @@ export default function mount(app) {
         if (!stakes.length) throw new ApiError(400, 'No active investments to distribute to');
 
         const totalStake = stakes.reduce((s, r) => s + r.stake, 0);
-        const items = stakes.map((r) => ({
+        // Work in integer cents so rounding can never fabricate or destroy money.
+        const totalCents = Math.round(total * 100);
+        const shares = stakes.map((r) => ({
           userId: r.user_id,
-          amount: round2((total * r.stake) / totalStake),
+          cents: Math.round(((total * r.stake) / totalStake) * 100),
         }));
-        const remainder = round2(total - round2(items.reduce((s, i) => s + i.amount, 0)));
-        if (remainder !== 0) items[0].amount = round2(items[0].amount + remainder);
+        const remainder = totalCents - shares.reduce((s, i) => s + i.cents, 0);
+        if (remainder > 0) {
+          // Leftover cents go to the largest stakeholder (ties: lowest user id).
+          shares[0].cents += remainder;
+        } else if (remainder < 0) {
+          // Rounding overshot the total: claw the excess back starting from the
+          // largest stakeholder, but never push any share below zero — a
+          // distribution is a CREDIT and must never debit a member.
+          let excess = -remainder;
+          for (const share of shares) {
+            const take = Math.min(share.cents, excess);
+            share.cents -= take;
+            excess -= take;
+            if (excess === 0) break;
+          }
+        }
+        const items = shares.map((s) => ({ userId: s.userId, amount: round2(s.cents / 100) }));
 
         const payoutId = Number(db.prepare(
           'INSERT INTO payouts (venture_id, kind, total, memo, created_by) VALUES (?,?,?,?,?)')
@@ -191,7 +208,7 @@ export default function mount(app) {
            VALUES (?,?,?,?,'venture',?,?)`);
         for (const item of items) {
           addItem.run(payoutId, item.userId, item.amount);
-          if (item.amount !== 0) {
+          if (item.amount > 0) {
             addLedger.run(item.userId, 'USDC', item.amount, kind, id, memo ?? `${kind}: ${v.name}`);
           }
         }

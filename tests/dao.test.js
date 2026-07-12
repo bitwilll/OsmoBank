@@ -38,7 +38,7 @@ test('GET /api/proposals: live first then recent, baseline pcts on OSM-042', asy
   // Synthetic baseline 10123 FOR / 4759 AGAINST -> 68.02 / 31.98 with no real votes yet.
   assert.equal(live.forPct, 68.02);
   assert.equal(live.againstPct, 31.98);
-  assert.equal(live.voters, 0);
+  assert.equal(live.voters, 14882); // synthetic launch-day headcount, coherent with the tally
   assert.equal(live.quorumPct, 30);
   assert.equal(live.quorumReached, false); // baseline power alone is under 30% of OSM supply
   assert.equal(live.yourVote, null);
@@ -56,7 +56,7 @@ test('POST /api/proposals/:id/vote: vote counts caller OSM power, re-vote replac
   const r1 = await c.post(`/api/proposals/${liveId}/vote`, { support: true });
   assert.equal(r1.status, 200);
   assert.equal(r1.json.proposal.yourVote, true);
-  assert.equal(r1.json.proposal.voters, 1);
+  assert.equal(r1.json.proposal.voters, 14883); // baseline 14882 + this member
   // (10123 + 10) / (14882 + 10) = 68.04
   assert.equal(r1.json.proposal.forPct, 68.04);
 
@@ -64,7 +64,7 @@ test('POST /api/proposals/:id/vote: vote counts caller OSM power, re-vote replac
   const r2 = await c.post(`/api/proposals/${liveId}/vote`, { support: false });
   assert.equal(r2.status, 200);
   assert.equal(r2.json.proposal.yourVote, false);
-  assert.equal(r2.json.proposal.voters, 1);
+  assert.equal(r2.json.proposal.voters, 14883);
   // 10123 / (14882 + 10) = 67.98, (4759 + 10) / 14892 = 32.02
   assert.equal(r2.json.proposal.forPct, 67.98);
   assert.equal(r2.json.proposal.againstPct, 32.02);
@@ -72,7 +72,7 @@ test('POST /api/proposals/:id/vote: vote counts caller OSM power, re-vote replac
   // The list reflects the persisted vote too.
   const list = await c.get('/api/proposals');
   assert.equal(list.json.proposals[0].yourVote, false);
-  assert.equal(list.json.proposals[0].voters, 1);
+  assert.equal(list.json.proposals[0].voters, 14883);
 });
 
 test('vote validation: bad support, closed proposal, missing proposal, bad id', async () => {
