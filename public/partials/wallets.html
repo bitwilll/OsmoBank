@@ -27,11 +27,11 @@
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div>
         <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(30px,4vw,42px);letter-spacing:.02em">WALLETS</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);margin-top:6px;letter-spacing:.1em">5 ACTIVE · $128,406.22 TOTAL · KEYS ON YOUR DEVICE</div>
+        <div data-slot="wallets.subtitle" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);margin-top:6px;letter-spacing:.1em">5 ACTIVE · $128,406.22 TOTAL · KEYS ON YOUR DEVICE</div>
       </div>
       <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap">
-        <div data-action="demoCard" role="button" tabindex="0" style="display:flex;align-items:center;gap:7px;padding:11px 22px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">add</span>New wallet</div>
-        <div data-action="demoImport" role="button" tabindex="0" style="display:flex;align-items:center;gap:7px;padding:11px 22px;border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;background:var(--sf,#fff)" class="obh-2"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">upload</span>Import</div>
+        <div data-action="newWallet" role="button" tabindex="0" style="display:flex;align-items:center;gap:7px;padding:11px 22px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">add</span>New wallet</div>
+        <div data-action="importWallet" role="button" tabindex="0" style="display:flex;align-items:center;gap:7px;padding:11px 22px;border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;background:var(--sf,#fff)" class="obh-2"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">upload</span>Import</div>
       </div>
     </div>
 
@@ -40,13 +40,13 @@
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="display:flex;align-items:center;gap:10px"><span style="width:11px;height:11px;border-radius:50%;background:#f7931a;display:inline-block"></span><span style="font-size:16px;font-weight:700">Bitcoin</span></div>
           <div style="display:flex;gap:8px;color:var(--mut,#757575)">
-            <span data-action="demoCard" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">qr_code_2</span>
+            <span data-action="qrBtc" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">qr_code_2</span>
             <span data-action="goTransfer" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">north_east</span>
           </div>
         </div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">0.82140</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$49,850 · <span style="color:var(--grn,#17a562)">+3.1% 24H</span></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)">bc1qxy2…v8f2<span data-action="demoCard" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">content_copy</span><span style="margin-left:auto;letter-spacing:.08em">NATIVE SEGWIT</span></div>
+        <div data-slot="wallets.btc.bal" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">0.82140</div>
+        <div data-slot="wallets.btc.sub" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$49,850 · <span style="color:var(--grn,#17a562)">+3.1% 24H</span></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)"><span data-slot="wallets.btc.addr">bc1qxy2…v8f2</span><span data-action="copyBtc" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">content_copy</span><span data-slot="wallets.btc.tag" style="margin-left:auto;letter-spacing:.08em">NATIVE SEGWIT</span></div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--reds,#f0b9b5);border-radius:18px;padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between">
@@ -56,21 +56,21 @@
             <span data-action="goTransfer" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">north_east</span>
           </div>
         </div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">84,300</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$35,256 · <span style="color:var(--grn,#17a562)">+4.6% 24H</span> · VOTING POWER</div>
+        <div data-slot="wallets.osm.bal" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">84,300</div>
+        <div data-slot="wallets.osm.sub" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$35,256 · <span style="color:var(--grn,#17a562)">+4.6% 24H</span> · VOTING POWER</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)">osmo1a8…k42x<span data-action="demoCard" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">content_copy</span><span style="margin-left:auto;letter-spacing:.08em">EARNS DIVIDENDS</span></div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="display:flex;align-items:center;gap:10px"><span style="width:11px;height:11px;border-radius:50%;background:#627eea;display:inline-block"></span><span style="font-size:16px;font-weight:700">Ethereum</span></div>
           <div style="display:flex;gap:8px;color:var(--mut,#757575)">
-            <span data-action="demoCard" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">qr_code_2</span>
+            <span data-action="qrEth" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">qr_code_2</span>
             <span data-action="goTransfer" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">north_east</span>
           </div>
         </div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">6.4400</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$22,730 · <span style="color:var(--grn,#17a562)">+1.8% 24H</span></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)">0x74bE…9c21<span data-action="demoCard" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">content_copy</span><span style="margin-left:auto;letter-spacing:.08em">MAINNET</span></div>
+        <div data-slot="wallets.eth.bal" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">6.4400</div>
+        <div data-slot="wallets.eth.sub" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$22,730 · <span style="color:var(--grn,#17a562)">+1.8% 24H</span></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)"><span data-slot="wallets.eth.addr">0x74bE…9c21</span><span data-action="copyEth" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">content_copy</span><span data-slot="wallets.eth.tag" style="margin-left:auto;letter-spacing:.08em">MAINNET</span></div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between">
@@ -80,8 +80,8 @@
             <span data-action="goTransfer" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;cursor:pointer" class="obh-0">north_east</span>
           </div>
         </div>
-        <div style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">12,450.00</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$12,450 · SPENDING BALANCE</div>
+        <div data-slot="wallets.usdc.bal" style="font-family:'Doto',monospace;font-weight:900;font-size:30px;margin-top:16px">12,450.00</div>
+        <div data-slot="wallets.usdc.sub" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$12,450 · SPENDING BALANCE</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)">LINKED TO OSMOCARD<span style="margin-left:auto;letter-spacing:.08em">STABLE</span></div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
@@ -96,7 +96,7 @@
         <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--mut,#757575);margin-top:4px">$8,120 · <span style="color:var(--red,#c47b10)">−1.2% 24H</span></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)">9xPq…3Lm<span data-action="demoCard" role="button" tabindex="0" style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1;cursor:pointer;color:var(--mut,#757575)" class="obh-0">content_copy</span><span style="margin-left:auto;letter-spacing:.08em">MAINNET</span></div>
       </div>
-      <div style="border:1px dotted var(--dt2,#c6c6c6);border-radius:18px;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:180px;cursor:pointer" class="obh-2">
+      <div data-action="addChain" role="button" tabindex="0" style="border:1px dotted var(--dt2,#c6c6c6);border-radius:18px;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:180px;cursor:pointer" class="obh-2">
         <span style="font-family:'Material Symbols Sharp';font-size:28px;line-height:1;color:var(--mut,#757575)">add_circle</span>
         <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;color:var(--mut,#757575)">ADD CHAIN — 40+ SUPPORTED</div>
       </div>
@@ -105,26 +105,31 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:26px">
       <div style="background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:18px;padding:22px;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
         <div style="width:112px;height:112px;flex:none;background:var(--inv,#fff);border-radius:12px;padding:10px;box-sizing:border-box">
-          <div style="width:100%;height:100%;position:relative;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.7px,transparent 2.2px);background-size:8px 8px">
+          <div data-slot="wallets.recv.qr" style="width:100%;height:100%;position:relative;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.7px,transparent 2.2px);background-size:8px 8px">
             <div style="position:absolute;left:0;top:0;width:18px;height:18px;border:3px solid var(--ink,#0a0a0a)"></div>
             <div style="position:absolute;right:0;top:0;width:18px;height:18px;border:3px solid var(--ink,#0a0a0a)"></div>
             <div style="position:absolute;left:0;bottom:0;width:18px;height:18px;border:3px solid var(--ink,#0a0a0a)"></div>
           </div>
         </div>
         <div style="flex:1;min-width:200px">
-          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;opacity:.6"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">south_west</span>RECEIVE / BITCOIN</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;margin-top:10px;word-break:break-all">bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0v8f2</div>
+          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;opacity:.6"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">south_west</span><span data-slot="wallets.recv.label">RECEIVE / BITCOIN</span></div>
+          <div style="display:flex;gap:6px;margin-top:12px">
+            <span data-slot="wallets.recv.chipBtc" data-action="recvSetBtc" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;padding:5px 12px;border-radius:100px;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);cursor:pointer">BTC</span>
+            <span data-slot="wallets.recv.chipEth" data-action="recvSetEth" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;padding:5px 12px;border-radius:100px;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);cursor:pointer">ETH</span>
+          </div>
+          <div data-slot="wallets.recv.addr" style="font-family:'IBM Plex Mono',monospace;font-size:13px;margin-top:10px;word-break:break-all">bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0v8f2</div>
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-            <div data-action="demoCard" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;padding:9px 18px;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">content_copy</span>Copy</div>
-            <div data-action="demoExport" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;padding:9px 18px;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-10"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">share</span>Share</div>
+            <div data-action="recvCopy" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;padding:9px 18px;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">content_copy</span>Copy</div>
+            <div data-action="recvShare" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;padding:9px 18px;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-10"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">share</span>Share</div>
           </div>
         </div>
       </div>
       <div style="border:1px dotted var(--dt2,#c6c6c6);border-radius:18px;padding:22px">
         <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">shield</span>SELF-CUSTODY STATUS</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px dotted var(--dt,#d9d9d9);margin-top:8px"><span style="font-size:14px;font-weight:600">Recovery phrase</span><span style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562)"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">check</span>BACKED UP</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px dotted var(--dt,#d9d9d9);margin-top:8px"><span style="font-size:14px;font-weight:600">Recovery phrase</span><span data-slot="wallets.recovery" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562)"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">check</span>BACKED UP</span></div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px dotted var(--dt,#d9d9d9)"><span style="font-size:14px;font-weight:600">2FA / passkey</span><span style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562)"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">fingerprint</span>ACTIVE</span></div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0"><span style="font-size:14px;font-weight:600">Hardware wallet</span><span data-action="demoCard" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--red,#c47b10);cursor:pointer"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">usb</span>PAIR NOW →</span></div>
+        <div data-slot="wallets.custodyActions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px"></div>
       </div>
     </div>
   </div>

@@ -1,0 +1,362 @@
+/* Transfer screen hydrator.
+ * Wires GET/POST /api/transfers and the client wallet.
+ *  - FROM selector cycles USDC (internal ledger) / tBTC / sETH (on-chain).
+ *  - USDC sends settle instantly via POST /api/transfers.
+ *  - tBTC/sETH sends require an unlocked device wallet -> wallet.send()
+ *    (which records the broadcast via /api/transfers/record internally).
+ *  - RECENT RECIPIENTS is filled from GET /api/transfers (top 5).
+ * All server/user data goes through textContent only. */
+
+// On-chain USD reference rates (display only).
+const BTC = 60684;
+const ETH = 3530;
+
+// FROM sources, cycled by the cycleFrom action.
+const FROMS = [
+  { key: 'usdc', chain: 'internal', dot: '#2775ca', name: 'USD Coin · internal', sym: 'USDC', rate: 1 },
+  { key: 'btc', chain: 'btc-testnet', dot: '#f7931a', name: 'Bitcoin · testnet', sym: 'tBTC', rate: BTC },
+  { key: 'eth', chain: 'eth-sepolia', dot: '#627eea', name: 'Ethereum · sepolia', sym: 'sETH', rate: ETH },
+];
+
+// Module (closure) state — persists across screen re-activations.
+let selectedIdx = 0;      // index into FROMS
+let selectedFee = 'std';  // eco|std|pri
+let btcFees = null;       // cached mempool recommended fees
+let chainBal = {};        // { 'btc-testnet': n, 'eth-sepolia': n }
+
+// ---- design-styled element helpers (mirror app.js / goals.js conventions) ----
+const el = (tag, css, text) => {
+  const n = document.createElement(tag);
+  if (css) n.style.cssText = css;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+const monoLabel = (t) => el('div', "font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin:12px 0 6px", t);
+const descCss = 'font-size:13.5px;color:var(--mut,#757575);line-height:1.6';
+const inputCss = "width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px";
+const btnCss = 'padding:12px 0;text-align:center;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;margin-top:14px';
+const btnGhostCss = 'padding:11px 0;text-align:center;border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:13.5px;font-weight:600;cursor:pointer;margin-top:9px';
+
+// ---- small formatters --------------------------------------------------------
+const trimNum = (n) => String(+Number(n || 0).toFixed(6));
+const shortAddr = (a) => {
+  const s = String(a || '');
+  return s.length > 14 ? `${s.slice(0, 8)}…${s.slice(-4)}` : s;
+};
+const shortTx = (tx) => {
+  const s = String(tx || '');
+  return s.length > 12 ? `${s.slice(0, 10)}…` : (s || '—');
+};
+function initialsFrom(s) {
+  const v = String(s || '').replace(/^@/, '').replace(/^0x/i, '');
+  return (v.slice(0, 2) || '··').toUpperCase();
+}
+
+// ---- balances ----------------------------------------------------------------
+const usdcBal = (ctx) => Number(ctx.me()?.balances?.USDC || 0);
+function availNum(ctx) {
+  const f = FROMS[selectedIdx];
+  if (f.key === 'usdc') return usdcBal(ctx);
+  return Number(chainBal[f.chain] ?? 0);
+}
+function availText(ctx) {
+  const f = FROMS[selectedIdx];
+  if (f.key === 'usdc') return `${ctx.fmt.usd(usdcBal(ctx))} available`;
+  if (!ctx.wallet.isUnlocked()) return 'WALLET LOCKED';
+  const b = chainBal[f.chain];
+  if (b == null) return `— ${f.sym} available`;
+  return `${trimNum(b)} ${f.sym} available`;
+}
+async function refreshChainBalances(ctx) {
+  if (!ctx.wallet.isUnlocked()) { chainBal = {}; return; }
+  try { chainBal = (await ctx.wallet.chainBalances()) || {}; }
+  catch { chainBal = {}; }
+}
+
+// ---- FROM / amount / fee rendering ------------------------------------------
+function updateFrom(root, ctx) {
+  const f = FROMS[selectedIdx];
+  const dot = ctx.slot(root, 'transfer.fromDot');
+  if (dot) dot.style.background = f.dot;
+  const name = ctx.slot(root, 'transfer.fromName');
+  if (name) name.textContent = f.name;
+  const av = ctx.slot(root, 'transfer.fromAvail');
+  if (av) av.textContent = availText(ctx);
+}
+
+function updateAmountUsd(root, ctx) {
+  const f = FROMS[selectedIdx];
+  const amtEl = ctx.slot(root, 'transfer.amount');
+  const out = ctx.slot(root, 'transfer.amountUsd');
+  if (!out) return;
+  const amt = Number(amtEl?.value || 0);
+  out.textContent = f.key === 'usdc' ? ctx.fmt.usd2(amt) : '≈' + ctx.fmt.usd2(amt * f.rate);
+}
+
+function styleChips(root, ctx) {
+  const chips = [
+    ['eco', ctx.slot(root, 'transfer.chipEco')],
+    ['std', ctx.slot(root, 'transfer.chipStd')],
+    ['pri', ctx.slot(root, 'transfer.chipPri')],
+  ];
+  for (const [fee, chip] of chips) {
+    if (!chip) continue;
+    const active = fee === selectedFee;
+    chip.style.border = active ? '1px solid var(--ink,#0a0a0a)' : '1px dotted var(--dt2,#c6c6c6)';
+    chip.style.color = active ? 'var(--ink,#0a0a0a)' : 'var(--mut,#757575)';
+    chip.style.fontWeight = active ? '600' : '400';
+    const sub = chip.querySelector('span');
+    if (sub) sub.style.color = active ? 'var(--mut,#757575)' : 'var(--fnt,#a3a3a3)';
+  }
+}
+
+async function loadBtcFees() {
+  if (btcFees) return btcFees;
+  try {
+    const r = await fetch('https://mempool.space/testnet/api/v1/fees/recommended');
+    btcFees = await r.json();
+  } catch { btcFees = { economyFee: 1, halfHourFee: 2, fastestFee: 3 }; }
+  return btcFees;
+}
+
+async function updateFee(root, ctx) {
+  const f = FROMS[selectedIdx];
+  const lab = ctx.slot(root, 'transfer.feeLabel');
+  const val = ctx.slot(root, 'transfer.feeValue');
+  const arr = ctx.slot(root, 'transfer.arrivesValue');
+  if (!lab || !val || !arr) return;
+
+  if (f.key === 'usdc') {
+    lab.textContent = 'FEE (INTERNAL)';
+    val.textContent = 'FREE';
+    arr.textContent = 'INSTANT · LEDGER';
+    return;
+  }
+  if (f.key === 'eth') {
+    lab.textContent = 'FEE (GAS)';
+    val.textContent = 'GAS ~21000 · SEPOLIA';
+    arr.textContent = '~30 SEC · SEPOLIA';
+    return;
+  }
+  // btc-testnet: mempool recommended fees, per selected chip.
+  const names = { eco: 'ECONOMY', std: 'STANDARD', pri: 'PRIORITY' };
+  const mins = { eco: '~40 MIN', std: '~10 MIN', pri: '~2 MIN' };
+  const field = { eco: 'economyFee', std: 'halfHourFee', pri: 'fastestFee' }[selectedFee];
+  lab.textContent = `FEE (${names[selectedFee]})`;
+  arr.textContent = mins[selectedFee];
+  val.textContent = '…';
+  try {
+    const fees = await loadBtcFees();
+    const rate = Math.max(1, Math.round(Number(fees?.[field] ?? 1)));
+    val.textContent = `${rate} sat/vB`;
+  } catch { val.textContent = '1 sat/vB'; }
+}
+
+// ---- recent recipients -------------------------------------------------------
+function amtLabel(t, ctx) {
+  const cur = t.currency || 'USDC';
+  const n = cur === 'USDC' ? ctx.fmt.num(t.amount) : trimNum(t.amount);
+  return `${n} ${cur}`;
+}
+
+async function fillRecents(root, ctx) {
+  let transfers;
+  try { ({ transfers } = await ctx.api.get('/api/transfers')); }
+  catch (e) { ctx.errToast(e); return; }
+
+  const L = ctx.list(root, 'transfer.recents');
+  if (!L) return;
+  L.clear();
+
+  const rows = (transfers || []).slice(0, 5);
+  if (!rows.length) {
+    const r = L.add();
+    ctx.slot(r, 'transfer.recent.initials').textContent = '';
+    const name = ctx.slot(r, 'transfer.recent.name');
+    name.textContent = 'No transfers yet';
+    name.style.color = 'var(--mut,#757575)';
+    name.style.fontWeight = '400';
+    ctx.slot(r, 'transfer.recent.sub').textContent = '';
+    r.style.cursor = 'default';
+    return;
+  }
+
+  for (const t of rows) {
+    const r = L.add();
+    const internal = t.chain === 'internal';
+    const cp = t.counterparty;
+    ctx.slot(r, 'transfer.recent.initials').textContent = initialsFrom(internal ? cp : t.toAddress);
+    ctx.slot(r, 'transfer.recent.name').textContent = internal ? `@${cp}` : shortAddr(t.toAddress);
+    ctx.slot(r, 'transfer.recent.sub').textContent = `LAST: ${amtLabel(t, ctx)} · ${ctx.fmt.ago(t.createdAt)}`;
+
+    const handler = () => {
+      if (internal) {
+        const toEl = ctx.slot(root, 'transfer.to');
+        if (toEl) { toEl.value = `@${cp}`; toEl.focus(); }
+      } else if (t.txid && ctx.wallet.CHAINS[t.chain]) {
+        window.open(ctx.wallet.CHAINS[t.chain].explorer(t.txid), '_blank');
+      }
+    };
+    r.addEventListener('click', handler);
+    r.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+    });
+  }
+}
+
+// ---- wallet unlock modal -----------------------------------------------------
+function openUnlock(ctx, onDone) {
+  const handle = ctx.me()?.user?.handle || '';
+  const backup = ctx.wallet.deviceBackup(handle);
+  const m = ctx.buildModal('UNLOCK YOUR WALLET', 'key');
+
+  if (backup) {
+    m.body.appendChild(el('div', descCss,
+      'Enter your device backup passphrase to unlock your on-chain keys. They never leave this device.'));
+    m.body.appendChild(monoLabel('BACKUP PASSPHRASE'));
+    const pass = el('input', inputCss);
+    pass.type = 'password';
+    pass.placeholder = 'backup passphrase';
+    m.body.appendChild(pass);
+    const btn = el('div', btnCss, 'Unlock wallet');
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('tabindex', '0');
+    btn.addEventListener('click', async () => {
+      try {
+        await ctx.wallet.unlockFromDevice(handle, pass.value);
+        m.close();
+        await onDone();
+      } catch (e) { ctx.errToast(e); }
+    });
+    m.body.appendChild(btn);
+    pass.focus();
+    return;
+  }
+
+  m.body.appendChild(el('div', descCss,
+    'No wallet backup on this device. Import your recovery phrase to sign on-chain, or create one on the Wallets screen.'));
+  m.body.appendChild(monoLabel('RECOVERY PHRASE (12 WORDS)'));
+  const ta = el('textarea', inputCss + ';min-height:70px;resize:vertical');
+  ta.placeholder = 'word1 word2 word3 …';
+  m.body.appendChild(ta);
+  const imp = el('div', btnCss, 'Import & unlock');
+  imp.setAttribute('role', 'button');
+  imp.setAttribute('tabindex', '0');
+  imp.addEventListener('click', async () => {
+    try {
+      await ctx.wallet.importVault(ta.value);
+      m.close();
+      await onDone();
+    } catch (e) { ctx.errToast(e); }
+  });
+  m.body.appendChild(imp);
+  const go = el('div', btnGhostCss, 'Create a wallet on the Wallets screen →');
+  go.setAttribute('role', 'button');
+  go.setAttribute('tabindex', '0');
+  go.addEventListener('click', () => { m.close(); ctx.nav('wallets'); });
+  m.body.appendChild(go);
+  ta.focus();
+}
+
+// ---- review & sign (demoTransfer override) ----------------------------------
+async function reviewAndSign(root, ctx) {
+  const toEl = ctx.slot(root, 'transfer.to');
+  const amtEl = ctx.slot(root, 'transfer.amount');
+  const to = (toEl?.value || '').trim();
+  const amount = Number(amtEl?.value || 0);
+  const f = FROMS[selectedIdx];
+
+  if (!to) return ctx.toast('ENTER A RECIPIENT', 'err');
+  if (!(amount > 0)) return ctx.toast('ENTER AN AMOUNT ABOVE ZERO', 'err');
+
+  if (f.key === 'usdc') {
+    const handle = to.replace(/^@+/, '');
+    try {
+      await ctx.api.post('/api/transfers', { to: handle, amount, currency: 'USDC' });
+      ctx.toast(`TRANSFER SETTLED · ${ctx.fmt.usd(amount)} TO @${handle}`);
+      await ctx.refreshMe();
+      updateFrom(root, ctx);
+      if (toEl) toEl.value = '';
+      if (amtEl) amtEl.value = '';
+      updateAmountUsd(root, ctx);
+      await fillRecents(root, ctx);
+    } catch (e) { ctx.errToast(e); }
+    return;
+  }
+
+  // on-chain (tBTC / sETH)
+  const chain = f.chain;
+  if (!ctx.wallet.isUnlocked()) {
+    openUnlock(ctx, async () => {
+      await refreshChainBalances(ctx);
+      updateFrom(root, ctx);
+      ctx.toast('WALLET UNLOCKED · REVIEW & SIGN AGAIN');
+    });
+    return;
+  }
+  try {
+    const { txid } = await ctx.wallet.send(chain, to, amount);
+    ctx.toast(`BROADCAST · ${shortTx(txid)}`);
+    if (amtEl) amtEl.value = '';
+    updateAmountUsd(root, ctx);
+    await refreshChainBalances(ctx);
+    updateFrom(root, ctx);
+    await fillRecents(root, ctx);
+  } catch (e) { ctx.errToast(e); }
+}
+
+// ---- hydrator ----------------------------------------------------------------
+export async function hydrate(root, ctx) {
+  if (!root.dataset.hydrated) {
+    const amtEl = ctx.slot(root, 'transfer.amount');
+    amtEl?.addEventListener('input', () => updateAmountUsd(root, ctx));
+
+    ctx.setAction('cycleFrom', async () => {
+      selectedIdx = (selectedIdx + 1) % FROMS.length;
+      updateFrom(root, ctx);
+      const f = FROMS[selectedIdx];
+      if (f.chain !== 'internal' && ctx.wallet.isUnlocked() && chainBal[f.chain] == null) {
+        await refreshChainBalances(ctx);
+        updateFrom(root, ctx);
+      }
+      updateAmountUsd(root, ctx);
+      await updateFee(root, ctx);
+    });
+
+    ctx.setAction('maxAmount', () => {
+      const f = FROMS[selectedIdx];
+      if (f.key !== 'usdc' && !ctx.wallet.isUnlocked()) return ctx.toast('UNLOCK YOUR WALLET FIRST', 'err');
+      const input = ctx.slot(root, 'transfer.amount');
+      if (input) input.value = String(availNum(ctx));
+      updateAmountUsd(root, ctx);
+    });
+
+    ctx.setAction('pickFee', (chip) => {
+      const fee = chip?.dataset?.fee;
+      if (fee) selectedFee = fee;
+      styleChips(root, ctx);
+      updateFee(root, ctx);
+    });
+
+    ctx.setAction('demoTransfer', () => reviewAndSign(root, ctx));
+    ctx.setAction('openSwap', () => ctx.toast('SWAPS AT TREASURY RATES · DEMO'));
+
+    root.dataset.hydrated = '1';
+  }
+
+  const seq = (root.__transferSeq = (root.__transferSeq || 0) + 1);
+  try { await ctx.refreshMe(); } catch { /* keep cached me */ }
+  if (root.__transferSeq !== seq) return;
+
+  updateFrom(root, ctx);
+  styleChips(root, ctx);
+  updateAmountUsd(root, ctx);
+  await updateFee(root, ctx);
+  await fillRecents(root, ctx);
+
+  if (ctx.wallet.isUnlocked()) {
+    await refreshChainBalances(ctx);
+    if (root.__transferSeq !== seq) return;
+    updateFrom(root, ctx);
+  }
+}
