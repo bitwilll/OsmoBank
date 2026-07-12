@@ -1,8 +1,9 @@
 /* Thin JSON API client. Throws ApiClientError with the server's message. */
 export class ApiClientError extends Error {
-  constructor(status, message) {
+  constructor(status, message, body = null) {
     super(message);
     this.status = status;
+    this.body = body; // full JSON error payload (e.g. { error, twoFactorRequired })
   }
 }
 
@@ -17,7 +18,7 @@ async function call(method, path, body) {
   const ct = res.headers.get('content-type') || '';
   const data = ct.includes('json') ? await res.json() : await res.text();
   if (!res.ok) {
-    throw new ApiClientError(res.status, (data && data.error) || `Request failed (${res.status})`);
+    throw new ApiClientError(res.status, (data && data.error) || `Request failed (${res.status})`, data);
   }
   return data;
 }

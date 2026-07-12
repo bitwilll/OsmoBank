@@ -218,3 +218,32 @@ Screen hydrator modules live in `public/js/screens/<screen>.js` and export
 - No secrets in responses (pass, session tokens of others, other users' emails from
   non-admin endpoints).
 - DOM: hydrators use textContent, never innerHTML with user data.
+
+## New endpoints — security, cards, export (added post-v1)
+
+### security — server/routes/security.js (all requireAuth unless noted)
+- `GET /api/security` → `{ twoFactorEnabled, twoFactorPending, passkeys: [{id, label, createdAt, lastUsedAt}] }`
+- `POST /api/security/2fa/setup` → `{ secret, otpauthUri }` (creates a pending TOTP secret; not yet enforced)
+- `POST /api/security/2fa/enable` `{code}` → verifies the 6-digit TOTP, enables 2FA → `{ok, ...status}`
+- `POST /api/security/2fa/disable` `{code?|passphrase?}` → re-auth then disable → `{ok, ...status}`
+- `POST /api/security/passkey/register/options` → WebAuthn registration options (challenge stored)
+- `POST /api/security/passkey/register/verify` `{response, label?}` → verifies + stores passkey → `{ok, ...status}`
+- `DELETE /api/security/passkey/:id` (own) → `{ok, ...status}`
+
+### auth additions — server/routes/auth.js
+- `POST /api/auth/login` now: if the user has 2FA enabled and no/invalid `totpCode`, returns 401 `{error, twoFactorRequired:true}`; resubmit with `{identifier, passphrase, totpCode}`.
+- `POST /api/auth/passkey/login/options` (no auth) `{identifier?}` → WebAuthn auth options (+ ob_pk challenge cookie)
+- `POST /api/auth/passkey/login/verify` (no auth) `{response}` → verifies assertion, creates session → `{user}`
+
+### cards — server/routes/cards.js (all requireAuth)
+- `GET /api/cards` → `{ cards:[{id,label,brand,last4,exp,kind,frozen,dailyLimit,createdAt}], spend, spendBreakdown:{groceries,transit,dining} }`
+- `POST /api/cards` `{label?, brand?(OSMO|VISA|MC), kind?}` → `{card}` (max 8; every new member is auto-issued one at signup)
+- `PATCH /api/cards/:id` (own) `{frozen?, label?, dailyLimit?}` → `{card}`
+- `POST /api/cards/:id/reveal` (own) `{passphrase}` → `{pan, cvv, exp}` (passphrase-gated, audit-logged)
+- `DELETE /api/cards/:id` (own) → `{ok}`
+- `POST /api/cards/gift` `{brand(AURORA AIR|SOLACE COFFEE|CITY TRANSIT|PLAYFIELD), amount}` → debits USDC ledger → `{gift:{id,brand,amount,code,back}, balance}`
+- `GET /api/cards/gifts` → `{gifts:[...]}`
+
+### export — server/routes/portfolio.js
+- `GET /api/reports/export?format=csv|pdf` → CSV (raw ledger) or PDF (formatted account statement)
+- `GET /api/portfolio/export?format=csv|pdf` → CSV or PDF of the Investor's Edge positions/P&L

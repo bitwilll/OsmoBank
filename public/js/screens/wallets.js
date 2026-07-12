@@ -412,6 +412,21 @@ function fillRecoveryStatus(root, ctx, backed) {
   );
 }
 
+async function fillTwoFactorStatus(root, ctx) {
+  const el2 = ctx.slot(root, 'wallets.twofa');
+  if (!el2) return;
+  let sec;
+  try { sec = await ctx.api.get('/api/security'); } catch { return; }
+  const on = sec.twoFactorEnabled || sec.passkeys.length > 0;
+  el2.style.color = on ? 'var(--grn,#17a562)' : 'var(--red,#c47b10)';
+  el2.textContent = '';
+  const label = sec.twoFactorEnabled && sec.passkeys.length ? '2FA + PASSKEY'
+    : sec.twoFactorEnabled ? '2FA ACTIVE'
+      : sec.passkeys.length ? `${sec.passkeys.length} PASSKEY${sec.passkeys.length === 1 ? '' : 'S'}`
+        : 'SET UP →';
+  el2.append(el('span', "font-family:'Material Symbols Sharp';font-size:15px;line-height:1", on ? 'fingerprint' : 'add'), label);
+}
+
 function buildCustodyButtons(root, ctx) {
   const box = ctx.slot(root, 'wallets.custodyActions');
   if (!box) return;
@@ -465,6 +480,7 @@ async function refill(root, ctx) {
 
   // self-custody status + action pills
   fillRecoveryStatus(root, ctx, !!ctx.wallet.deviceBackup(meData.user?.handle));
+  fillTwoFactorStatus(root, ctx);
   buildCustodyButtons(root, ctx);
 
   // receive panel (async — QR)

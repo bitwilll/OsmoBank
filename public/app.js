@@ -298,6 +298,19 @@ function openProfile() {
   });
   m.body.appendChild(change);
 
+  m.body.appendChild(monoLabel('SECURITY'));
+  api.get('/api/security').then((sec) => {
+    const bits = [];
+    bits.push(sec.twoFactorEnabled ? '2FA on' : '2FA off');
+    bits.push(`${sec.passkeys.length} passkey${sec.passkeys.length === 1 ? '' : 's'}`);
+    secStatus.textContent = bits.join(' · ');
+  }).catch(() => { secStatus.textContent = ''; });
+  const secStatus = el('div', 'font-size:12.5px;color:var(--mut,#757575)', 'Two-factor & passkeys');
+  m.body.appendChild(secStatus);
+  const secBtn = el('div', btnGhostCss, 'Two-factor & passkeys');
+  secBtn.addEventListener('click', () => { m.close(); openSecurity(); });
+  m.body.appendChild(secBtn);
+
   m.body.appendChild(monoLabel('WALLET'));
   m.body.appendChild(el('div', 'font-size:12.5px;color:var(--mut,#757575)',
     wallet.isUnlocked() ? 'Unlocked on this device.' : (wallet.deviceBackup(u.handle) ? 'Encrypted backup on this device — unlock from the Wallets screen.' : 'No wallet on this device — create or import from the Wallets screen.')));
@@ -317,6 +330,132 @@ function openProfile() {
     toast('SIGNED OUT');
   });
   m.body.appendChild(out);
+}
+
+// ---- security: 2FA (TOTP) + passkeys (WebAuthn) --------------------------------------
+const btnRedGhostCss = 'padding:11px 0;text-align:center;border:1px solid var(--red,#c47b10);color:var(--red,#c47b10);border-radius:100px;font-size:13.5px;font-weight:600;cursor:pointer;margin-top:9px';
+
+async function openSecurity() {
+  if (!me) return nav('login');
+  const m = buildModal('SECURITY', 'shield');
+
+  async function render() {
+    m.body.textContent = '';
+    let sec;
+    try { sec = await api.get('/api/security'); } catch (e) { return errToast(e); }
+
+    // ── Two-factor ──────────────────────────────────────────────────────────
+    m.body.appendChild(monoLabel('TWO-FACTOR AUTHENTICATION'));
+    m.body.appendChild(el('div', 'font-size:12.5px;color:var(--mut,#757575);line-height:1.5',
+      sec.twoFactorEnabled
+        ? 'Enabled. A 6-digit code from your authenticator is required every sign-in.'
+        : 'Protect sign-in with a time-based code (Google Authenticator, Authy, 1Password…).'));
+    if (sec.twoFactorEnabled) {
+      const code = el('input', inputCss + ';margin-top:10px'); code.placeholder = 'current 6-digit code'; code.inputMode = 'numeric';
+      m.body.appendChild(code);
+      const off = el('div', btnRedGhostCss, 'Disable 2FA');
+      off.addEventListener('click', async () => {
+        try { await api.post('/api/security/2fa/disable', { code: code.value }); toast('TWO-FACTOR DISABLED'); await render(); }
+        catch (e) { errToast(e); }
+      });
+      m.body.appendChild(off);
+    } else {
+      const on = el('div', btnCss, 'Enable 2FA');
+      on.addEventListener('click', () => enroll2fa(render));
+      m.body.appendChild(on);
+    }
+
+    // ── Passkeys ────────────────────────────────────────────────────────────
+    m.body.appendChild(monoLabel('PASSKEYS'));
+    if (!sec.passkeys.length) {
+      m.body.appendChild(el('div', 'font-size:12.5px;color:var(--mut,#757575);line-height:1.5',
+        'None yet. Add a passkey to sign in with Face ID, Touch ID, or a security key — no passphrase needed.'));
+    }
+    for (const pk of sec.passkeys) {
+      const row = el('div', 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px dotted var(--dt2,#c6c6c6)');
+      row.appendChild(el('div', 'font-size:13px', `${pk.label} · added ${fmt.date(pk.createdAt)}`));
+      const rm = el('span', "font-family:'Material Symbols Sharp';font-size:18px;cursor:pointer;color:var(--mut,#757575)", 'delete');
+      rm.addEventListener('click', async () => {
+        try { await api.del(`/api/security/passkey/${pk.id}`); toast('PASSKEY REMOVED'); await render(); }
+        catch (e) { errToast(e); }
+      });
+      row.appendChild(rm);
+      m.body.appendChild(row);
+    }
+    if (!window.PublicKeyCredential) {
+      m.body.appendChild(el('div', 'font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:8px', 'This browser does not support passkeys.'));
+    } else {
+      const add = el('div', btnGhostCss, 'Add a passkey');
+      add.addEventListener('click', () => addPasskey(render));
+      m.body.appendChild(add);
+    }
+  }
+  await render();
+}
+
+async function enroll2fa(refresh) {
+  const m = buildModal('ENABLE TWO-FACTOR', 'key');
+  let setup;
+  try { setup = await api.post('/api/security/2fa/setup'); } catch (e) { m.close(); return errToast(e); }
+  m.body.appendChild(el('div', 'font-size:13px;color:var(--mut,#757575);line-height:1.6',
+    'Scan this with your authenticator app, or enter the key manually. Then type the 6-digit code it shows.'));
+  try {
+    const L = await import('./vendor/wallet-libs.js');
+    const qr = L.qrcode(0, 'M'); qr.addData(setup.otpauthUri); qr.make();
+    const box = el('div', 'width:170px;height:170px;margin:14px auto;background:#fff;padding:10px;border-radius:12px;box-sizing:border-box');
+    box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 1, scalable: true }); // locally generated
+    m.body.appendChild(box);
+  } catch { /* QR optional */ }
+  m.body.appendChild(el('div', "text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);word-break:break-all", setup.secret));
+  const code = el('input', inputCss + ';margin-top:12px'); code.placeholder = '6-digit code'; code.inputMode = 'numeric';
+  m.body.appendChild(code);
+  const go = el('div', btnCss, 'Verify & enable');
+  go.addEventListener('click', async () => {
+    try { await api.post('/api/security/2fa/enable', { code: code.value }); m.close(); toast('TWO-FACTOR ENABLED'); await refresh(); }
+    catch (e) { errToast(e); }
+  });
+  m.body.appendChild(go);
+  code.focus();
+}
+
+async function addPasskey(refresh) {
+  try {
+    const { startRegistration } = await import('./vendor/webauthn.js');
+    const options = await api.post('/api/security/passkey/register/options');
+    const attResp = await startRegistration({ optionsJSON: options });
+    await api.post('/api/security/passkey/register/verify', { response: attResp, label: `Passkey · ${new Date().toLocaleDateString()}` });
+    toast('PASSKEY ADDED');
+    await refresh();
+  } catch (e) {
+    if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) return; // user cancelled
+    errToast(e);
+  }
+}
+
+async function passkeyLogin(identifier) {
+  const { startAuthentication } = await import('./vendor/webauthn.js');
+  const options = await api.post('/api/auth/passkey/login/options', identifier ? { identifier } : {});
+  const asseResp = await startAuthentication({ optionsJSON: options });
+  const { user } = await api.post('/api/auth/passkey/login/verify', { response: asseResp });
+  return user;
+}
+
+/** Small modal that collects a 6-digit 2FA code, then runs onSubmit(code). */
+function promptTwoFactor(onSubmit) {
+  const m = buildModal('TWO-FACTOR REQUIRED', 'lock');
+  m.body.appendChild(el('div', 'font-size:13px;color:var(--mut,#757575);line-height:1.6',
+    'Enter the 6-digit code from your authenticator app.'));
+  const code = el('input', inputCss + ';margin-top:12px'); code.placeholder = '000000'; code.inputMode = 'numeric'; code.maxLength = 6;
+  m.body.appendChild(code);
+  const go = el('div', btnCss, 'Verify');
+  const submit = async () => {
+    try { await onSubmit(code.value.trim()); m.close(); }
+    catch (e) { errToast(e); }
+  };
+  go.addEventListener('click', submit);
+  code.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  m.body.appendChild(go);
+  code.focus();
 }
 
 // ---- global actions ---------------------------------------------------------------
@@ -340,9 +479,7 @@ const actions = {
     const identifier = $('input[placeholder="amara@osmo.money"]', root)?.value?.trim();
     const passphrase = $('input[type="password"]', root)?.value;
     if (!identifier || !passphrase) return toast('ENTER YOUR EMAIL/@HANDLE AND PASSPHRASE', 'err');
-    try {
-      const { user } = await api.post('/api/auth/login', { identifier, passphrase });
-      await refreshMe();
+    const finish = (user) => {
       if (state.authMode === 'admin' && user.role !== 'admin') {
         toast('THAT ACCOUNT IS NOT AN OPERATOR — OPENING MEMBER VAULT', 'err');
         nav('dash');
@@ -350,8 +487,36 @@ const actions = {
         nav(state.authMode === 'admin' ? 'admin' : 'dash');
         toast(`WELCOME BACK, ${user.name.split(' ')[0].toUpperCase()}`);
       }
-    } catch (e) { errToast(e); }
+    };
+    try {
+      const { user } = await api.post('/api/auth/login', { identifier, passphrase });
+      await refreshMe();
+      finish(user);
+    } catch (e) {
+      if (e.body?.twoFactorRequired) return promptTwoFactor(async (totpCode) => {
+        const { user } = await api.post('/api/auth/login', { identifier, passphrase, totpCode });
+        await refreshMe();
+        finish(user);
+      });
+      errToast(e);
+    }
   },
+
+  async passkeyLogin() {
+    if (!window.PublicKeyCredential) return toast('THIS BROWSER DOES NOT SUPPORT PASSKEYS', 'err');
+    const root = $('[data-partial="login"]');
+    const identifier = $('input[placeholder="amara@osmo.money"]', root)?.value?.trim() || undefined;
+    try {
+      const user = await passkeyLogin(identifier);
+      await refreshMe();
+      nav(user.role === 'admin' && state.authMode === 'admin' ? 'admin' : 'dash');
+      toast(`WELCOME BACK, ${user.name.split(' ')[0].toUpperCase()}`);
+    } catch (e) {
+      if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) return;
+      errToast(e);
+    }
+  },
+  security: openSecurity,
 
   async submitSignup() {
     const root = $('[data-partial="signup"]');
