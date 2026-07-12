@@ -1,0 +1,32 @@
+/* OsmoBank theme variables — palettes from the design spec (accent #c47b10). */
+:root{
+  color-scheme:light;
+  --bg:#f4f4f4; --sf:#ffffff; --ink:#0a0a0a; --inv:#ffffff;
+  --mut:#757575; --fnt:#a3a3a3; --hr:#e4e4e4; --dt:#d9d9d9;
+  --dt2:#c6c6c6; --red:#c47b10; --reds:#f0b9b5; --grn:#17a562;
+}
+:root.ob-dark{
+  color-scheme:dark;
+  --bg:#0a0a0a; --sf:#141414; --ink:#f5f5f5; --inv:#0a0a0a;
+  --mut:#8a8a8a; --fnt:#5c5c5c; --hr:#262626; --dt:#333333;
+  --dt2:#3a3a3a; --red:#c47b10; --reds:#5c2622; --grn:#2fd18a;
+}
+
+/* Keyboard affordance for the design's div-buttons (mouse rendering unchanged). */
+[data-action]:focus-visible{outline:2px solid var(--red,#c47b10);outline-offset:2px;border-radius:4px}
+
+/* Hover states generated from the design's style-hover attributes.
+   !important is required: they must override the elements' inline styles. */
+.obh-0:hover{color:var(--ink,#0a0a0a) !important}
+.obh-1:hover{border-color:var(--ink,#0a0a0a) !important;color:var(--ink,#0a0a0a) !important}
+.obh-2:hover{border-color:var(--ink,#0a0a0a) !important}
+.obh-3:hover{opacity:.85 !important}
+.obh-4:hover{color:var(--red,#e0342b) !important}
+.obh-5:hover{box-shadow:0 0 0 1px var(--red,#e0342b) !important}
+.obh-6:hover{border-color:var(--red,#c47b10) !important}
+.obh-7:hover{color:var(--red,#c47b10) !important}
+.obh-8:hover{box-shadow:0 0 0 1px var(--red,#c47b10) !important}
+.obh-9:hover{opacity:.92 !important}
+.obh-10:hover{border-color:var(--inv,#fff) !important}
+.obh-11:hover{opacity:.88 !important}
+.obh-12:hover{opacity:1 !important}
