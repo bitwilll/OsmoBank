@@ -17,7 +17,7 @@
  *   else                                       → local data/osmobank.db file
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { randomBytes, scryptSync } from 'node:crypto';
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname, join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -330,6 +330,27 @@ async function seed() {
   console.log(`  manager → marisol@osmo.money / ${managerPass}`);
 }
 
+// The environment is authoritative for operator credentials: if OSMO_ADMIN_PASS /
+// OSMO_MANAGER_PASS are set (or changed) AFTER the first seed — e.g. added to the
+// deployment later — update the stored hash on cold start so operators are never
+// locked out behind a random seed-time password. Local duplicate of verifyPass
+// (lib/util.js imports this module, so importing it back would be a cycle).
+function passMatches(passphrase, stored) {
+  const [scheme, salt, hash] = String(stored).split(':');
+  if (scheme !== 'scrypt' || !salt || !hash) return false;
+  const candidate = scryptSync(String(passphrase), salt, 64, { N: 16384, r: 8, p: 1 });
+  const expected = Buffer.from(hash, 'hex');
+  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+}
+
+async function syncOperatorPass(email, pass) {
+  if (!pass) return;
+  const row = await db.prepare('SELECT id, pass FROM users WHERE email = ?').get(email);
+  if (!row || passMatches(pass, row.pass)) return;
+  await db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(hashPass(pass), row.id);
+  await audit(row.id, 'pass_sync', 'user:' + row.id, 'operator password updated from environment');
+}
+
 // ---- one-time initialisation (schema + seed) -------------------------------
 let initPromise = null;
 export function initDb() {
@@ -346,6 +367,8 @@ export function initDb() {
         }
       }
     }
+    await syncOperatorPass('admin@osmo.money', process.env.OSMO_ADMIN_PASS);
+    await syncOperatorPass('marisol@osmo.money', process.env.OSMO_MANAGER_PASS);
   })().catch((e) => {
     // Never cache a failed init (e.g. the DB is unreachable / not yet
     // configured). Clearing the memo lets the next request retry, so the
