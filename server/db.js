@@ -8,8 +8,12 @@
  * transaction connection without threading it through every call.
  *
  * Connection resolution (first match wins):
- *   TURSO_DATABASE_URL (+ TURSO_AUTH_TOKEN)   → hosted Turso
+ *   TURSO_DATABASE_URL (+ TURSO_AUTH_TOKEN)   → hosted Turso (durable)
  *   OSMO_DB                                    → path or libsql/file: URL
+ *   on Vercel with neither                     → /tmp/osmobank.db (writable,
+ *                                                but EPHEMERAL per instance —
+ *                                                a stop-gap so the app works
+ *                                                until a Turso URL is set)
  *   else                                       → local data/osmobank.db file
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -23,8 +27,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 function resolveConfig() {
   const url = process.env.TURSO_DATABASE_URL;
   if (url) return { url, authToken: process.env.TURSO_AUTH_TOKEN };
-  // Local / test: a path or an explicit libsql/file/:memory: URL.
-  let target = process.env.OSMO_DB || join(ROOT, 'data', 'osmobank.db');
+  // Local / test: a path or an explicit libsql/file/:memory: URL. On Vercel the
+  // deployment filesystem is read-only except /tmp, so fall back there — this
+  // lets login/signup work without Turso, though data is per-instance ephemeral.
+  let target = process.env.OSMO_DB
+    || (process.env.VERCEL ? '/tmp/osmobank.db' : join(ROOT, 'data', 'osmobank.db'));
   if (/^(libsql:|file:|http:|https:|:memory:)/.test(target)) {
     if (target.startsWith('file:')) mkdirSync(dirname(target.slice(5)) || '.', { recursive: true });
     return { url: target };

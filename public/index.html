@@ -19,16 +19,22 @@ input,select{outline:none}
 @keyframes ob-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @keyframes ob-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 @keyframes ob-pulse{0%{box-shadow:0 0 0 0 rgba(196,123,16,.45)}70%{box-shadow:0 0 0 11px rgba(196,123,16,0)}100%{box-shadow:0 0 0 0 rgba(196,123,16,0)}}
-/* Animated logo watermark in the hero: a big, faint ringed star. The Saturn ring
-   slowly revolves around the star (rotates about the shared centre) while the star
-   softly twinkles. Colour is var(--hr) so it stays as subtle as the old rings. */
-.ob-mark-bg{position:absolute;z-index:-1;right:-24px;top:44px;width:440px;height:412px;max-width:60%;pointer-events:none;opacity:.9}
+/* Animated logo watermark in the hero: a big, faint ringed star. Two orbital
+   rings counter-rotate at different speeds (a gyroscope weave), the star turns
+   very slowly while gently breathing + glowing, and the whole mark drifts. All
+   in var(--hr) so it stays as subtle as the old rings, and stills for
+   prefers-reduced-motion. */
+.ob-mark-bg{position:absolute;z-index:-1;right:-24px;top:44px;width:440px;height:412px;max-width:60%;pointer-events:none;opacity:.9;animation:ob-drift 11s ease-in-out infinite}
 .ob-mark-bg svg{width:100%;height:100%;overflow:visible;display:block}
-.ob-mark-ring{transform-box:fill-box;transform-origin:center;animation:ob-ring-rev 24s linear infinite}
-.ob-mark-star{transform-box:fill-box;transform-origin:center;animation:ob-twinkle 6.5s ease-in-out infinite}
-@keyframes ob-ring-rev{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-@keyframes ob-twinkle{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.06);opacity:1}}
-@media (prefers-reduced-motion:reduce){.ob-mark-ring,.ob-mark-star{animation:none}}
+.ob-mark-ring{transform-box:fill-box;transform-origin:center;animation:ob-spin-cw 20s linear infinite}
+.ob-mark-ring2{transform-box:fill-box;transform-origin:center;opacity:.6;animation:ob-spin-ccw 31s linear infinite}
+.ob-mark-star{transform-box:fill-box;transform-origin:center;animation:ob-star-turn 46s linear infinite,ob-star-glow 5.5s ease-in-out infinite}
+@keyframes ob-spin-cw{to{transform:rotate(360deg)}}
+@keyframes ob-spin-ccw{to{transform:rotate(-360deg)}}
+@keyframes ob-star-turn{0%{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(1.05)}100%{transform:rotate(360deg) scale(1)}}
+@keyframes ob-star-glow{0%,100%{opacity:.72}50%{opacity:1}}
+@keyframes ob-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@media (prefers-reduced-motion:reduce){.ob-mark-bg,.ob-mark-ring,.ob-mark-ring2,.ob-mark-star{animation:none}}
 </style>
 </head>
 <body>
