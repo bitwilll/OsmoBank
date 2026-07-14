@@ -10,6 +10,18 @@ test('auth: sessions, forgot/reset, wallet provisioning', async (t) => {
   t.after(() => srv.stop());
   const base = srv.base;
 
+  await t.test('register requires accepting the legal notice', async () => {
+    const c = client(base);
+    const body = { name: 'No Consent', handle: 'noconsent1', email: 'noconsent1@example.com', passphrase: 'correct-horse-battery' };
+    const r1 = await c.post('/api/auth/register', body);
+    assert.equal(r1.status, 400, 'omitting disclaimerAccepted is rejected');
+    assert.match(r1.json.error, /legal notice/i);
+    const r2 = await c.post('/api/auth/register', { ...body, disclaimerAccepted: 'yes' });
+    assert.equal(r2.status, 400, 'non-boolean acceptance is rejected');
+    const r3 = await c.post('/api/auth/register', { ...body, disclaimerAccepted: true });
+    assert.equal(r3.status, 201, 'accepting the notice creates the account');
+  });
+
   await t.test('single-active-session status + logout-all', async () => {
     const { c: a, user } = await registerMember(base, { fund: false });
     let me = (await a.get('/api/me')).json;

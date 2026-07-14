@@ -5,7 +5,7 @@ import {
 
 const ROLES = ['member', 'manager', 'admin'];
 const STATUSES = ['active', 'review', 'frozen'];
-const MEMBER_NO_BASE = 48195;
+const MEMBER_NO_BASE = 0; // member number is the real account id — no vanity offset
 
 /** Humanize a UTC 'YYYY-MM-DD HH:MM:SS' timestamp as "3h ago" etc. */
 function joinedAgo(createdAt) {

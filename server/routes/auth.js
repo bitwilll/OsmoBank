@@ -66,6 +66,12 @@ export default function mount(app) {
       const email = str(req.body?.email, { min: 5, max: 120, name: 'email' }).toLowerCase();
       if (!EMAIL_RE.test(email)) throw new ApiError(400, 'email looks invalid');
       const passphrase = str(req.body?.passphrase, { min: 12, max: 200, name: 'passphrase' });
+      // Membership requires explicit acceptance of the legal notice (OsmoBank is
+      // not a bank; funds are not insured). The client blocks too, but the server
+      // is the authority — acceptance is recorded in the audit log.
+      if (req.body?.disclaimerAccepted !== true) {
+        throw new ApiError(400, 'You must accept the legal notice to create an account');
+      }
 
       const user = await tx(async () => {
         const clash = await db.prepare('SELECT id FROM users WHERE handle = ? OR email = ?').get(handle, email);
@@ -77,7 +83,7 @@ export default function mount(app) {
         // money. They fund the account themselves via Add Funds (deposit) or by
         // receiving crypto/an internal transfer.
         await issueCard(id); // every new member still gets their own (empty) virtual OsmoCard
-        await audit(id, 'register', `user:${id}`, handle);
+        await audit(id, 'register', `user:${id}`, `${handle} · legal notice accepted`);
         return await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       });
 

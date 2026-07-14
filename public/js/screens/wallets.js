@@ -11,10 +11,7 @@
  *  - RECEIVE panel + per-card QR icons render locally-generated QR (the only
  *    innerHTML exception). Everything else fills via textContent / createElement. */
 
-// On-chain USD reference rates (display only).
-const BTC = 60684;
-const ETH = 3530;
-const OSM = 0.4182;
+import { getPrices, usdAt } from '../prices.js';
 
 // Module (closure) state — persists across screen re-activations.
 let recvChain = null;            // active BTC chain key; initialised from ctx.wallet on first use
@@ -461,17 +458,25 @@ async function refill(root, ctx) {
   const usdc = Number(meData.balances?.USDC || 0);
   const osm = Number(meData.balances?.OSM || 0);
 
-  // subtitle: <n> ACTIVE · $<USDC+OSM value> TOTAL · KEYS ON YOUR DEVICE
+  // subtitle: <n> ACTIVE · $<verifiable USD> TOTAL [· KEYS ON YOUR DEVICE]
+  // The total only counts USD we can actually verify: the USDC ledger (1:1
+  // dollars) now, plus live-priced BTC/ETH folded in below once on-chain
+  // balances and a live quote both land. OSM has no market price, so it never
+  // contributes. The keys clause only appears when a vault exists on this device.
   const activeCount = wallets.length + 2; // on-chain wallets + USDC & OSM ledgers
-  const ledgerTotal = usdc + osm * OSM;
-  ctx.slot(root, 'wallets.subtitle').textContent =
-    `${activeCount} ACTIVE · ${ctx.fmt.usd2(ledgerTotal)} TOTAL · KEYS ON YOUR DEVICE`;
+  const keysClause = (ctx.wallet.isUnlocked() || ctx.wallet.deviceBackup(meData.user?.handle))
+    ? ' · KEYS ON YOUR DEVICE' : '';
+  const setSubtitle = (totalText) => {
+    ctx.slot(root, 'wallets.subtitle').textContent =
+      `${activeCount} ACTIVE · ${totalText} TOTAL${keysClause}`;
+  };
+  setSubtitle(ctx.fmt.usd2(usdc));
 
-  // OSM card (ledger governance token)
+  // OSM card (ledger governance token — no market price, so no invented USD value)
   ctx.slot(root, 'wallets.osm.bal').textContent = ctx.fmt.num(osm);
   const osmSub = ctx.slot(root, 'wallets.osm.sub');
   osmSub.textContent = '';
-  osmSub.append(document.createTextNode(`${ctx.fmt.usd(osm * OSM)} · `));
+  osmSub.append(document.createTextNode('— · '));
   osmSub.append(el('span', 'color:var(--fnt,#a3a3a3)', '— 24H')); // no 24h price series → dash
   osmSub.append(document.createTextNode(' · VOTING POWER'));
 
@@ -510,12 +515,30 @@ async function refill(root, ctx) {
   catch { chains = null; }
   if (root.__walletsSeq !== seq) return;
 
-  const btc = Number(chains?.[ctx.wallet.BTC_CHAIN] ?? 0);
-  const eth = Number(chains?.[ctx.wallet.ETH_CHAIN] ?? 0);
+  if (!chains) {
+    // balance lookup failed — dashes, never a made-up zero
+    ctx.slot(root, 'wallets.btc.bal').textContent = '—';
+    ctx.slot(root, 'wallets.btc.sub').textContent = '— —';
+    ctx.slot(root, 'wallets.eth.bal').textContent = '—';
+    ctx.slot(root, 'wallets.eth.sub').textContent = '— —';
+    return;
+  }
+
+  const prices = await getPrices(); // null when no live quote exists → usdAt renders '—'
+  if (root.__walletsSeq !== seq) return;
+
+  const btc = Number(chains[ctx.wallet.BTC_CHAIN] ?? 0);
+  const eth = Number(chains[ctx.wallet.ETH_CHAIN] ?? 0);
+  const live = ctx.wallet.IS_MAINNET; // testnet coins have no USD value
   ctx.slot(root, 'wallets.btc.bal').textContent = btc.toFixed(5);
-  setSub(ctx.slot(root, 'wallets.btc.sub'), ctx.fmt.usd(btc * BTC));
+  setSub(ctx.slot(root, 'wallets.btc.sub'), live ? usdAt(prices, 'BTC', btc) : '—');
   ctx.slot(root, 'wallets.eth.bal').textContent = eth.toFixed(4);
-  setSub(ctx.slot(root, 'wallets.eth.sub'), ctx.fmt.usd(eth * ETH));
+  setSub(ctx.slot(root, 'wallets.eth.sub'), live ? usdAt(prices, 'ETH', eth) : '—');
+
+  // fold live on-chain value into the subtitle total once it is verifiable
+  if (live && prices?.BTC?.usd != null && prices?.ETH?.usd != null) {
+    setSubtitle(ctx.fmt.usd2(usdc + btc * prices.BTC.usd + eth * prices.ETH.usd));
+  }
 }
 
 // ---- hydrator ----------------------------------------------------------------
@@ -530,7 +553,7 @@ export async function hydrate(root, ctx) {
 
     ctx.setAction('newWallet', () => newWalletFlow(root, ctx));
     ctx.setAction('importWallet', () => importFlow(root, ctx));
-    ctx.setAction('addChain', () => ctx.toast('40+ CHAINS · DEMO'));
+    ctx.setAction('addChain', () => ctx.toast('MORE CHAINS COMING SOON'));
 
     ctx.setAction('qrBtc', () => receiveModal(ctx, ctx.wallet.BTC_CHAIN));
     ctx.setAction('qrEth', () => receiveModal(ctx, ctx.wallet.ETH_CHAIN));

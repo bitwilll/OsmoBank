@@ -92,7 +92,7 @@ test('overview: real counts, treasury, queues, newest members, network', async (
   assert.equal(o.newestMembers.length, 5);
   assert.equal(o.newestMembers[0].id, member.user.id);
   for (const m of o.newestMembers) {
-    assert.equal(m.memberNo, 48195 + m.id);
+    assert.equal(m.memberNo, m.id); // real account id, no vanity offset
     assert.equal(typeof m.joinedAgo, 'string');
     assert.ok(['verified', 'pending'].includes(m.kyc));
     assert.ok(['active', 'review', 'frozen'].includes(m.status));

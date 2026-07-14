@@ -84,8 +84,16 @@ function render() {
   if (dot) dot.style.background = state.toastKind === 'err' ? 'var(--red,#c47b10)' : 'var(--grn,#17a562)';
   const maxEl = $('[data-slot="invest.max"]');
   if (maxEl && state.invest) maxEl.textContent = `MAX ${fmt.usd(state.invest.max)}`;
+  // Honest per-venture estimate: this venture's APY over one quarter, per $500.
+  const estEl = $('[data-slot="invest.estDiv"]');
+  if (estEl && state.invest) {
+    estEl.textContent = state.invest.apy > 0 ? `${fmt.usd(500 * state.invest.apy / 400)} / $500` : '—';
+  }
 
-  const initials = (me?.user?.name || 'A O').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  // No fake identity: before login the avatar shows a neutral glyph.
+  const initials = me?.user?.name
+    ? me.user.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    : '··';
   for (const el of $$('[data-slot="avatarInitials"]')) el.textContent = initials;
 }
 
@@ -287,7 +295,7 @@ function openProfile() {
 
   m.body.appendChild(el('div', "font-family:'Doto',monospace;font-weight:900;font-size:22px", u.name.toUpperCase()));
   m.body.appendChild(el('div', 'font-size:12.5px;color:var(--mut,#757575);margin-top:4px',
-    `@${u.handle} · ${u.role.toUpperCase()} · MEMBER #${48195 + u.id}`));
+    `@${u.handle} · ${u.role.toUpperCase()} · MEMBER #${u.id}`));
 
   m.body.appendChild(monoLabel('NAME'));
   const name = el('input', inputCss); name.value = u.name; m.body.appendChild(name);
@@ -785,18 +793,25 @@ const actions = {
 
   async submitSignup() {
     const root = $('[data-partial="signup"]');
+    // Account creation is gated on accepting the legal notice (also enforced
+    // server-side — this check just gives instant feedback).
+    if (!$('[data-slot="signup.disclaimer"]', root)?.checked) {
+      errToast('PLEASE ACCEPT THE LEGAL NOTICE TO CONTINUE');
+      return;
+    }
     const body = {
       name: $('input[placeholder="Amara Okafor"]', root)?.value?.trim(),
       handle: $('input[placeholder="@amara"]', root)?.value?.trim(),
       email: $('input[placeholder="you@anywhere.earth"]', root)?.value?.trim(),
       passphrase: $('input[type="password"]', root)?.value,
+      disclaimerAccepted: true,
     };
     try {
       await api.post('/api/auth/register', body);
       await refreshMe();
       await provisionWalletFlow();
       nav('dash');
-      toast(`VAULT PROVISIONED · MEMBER #${fmt.num(48195 + me.user.id)}`);
+      toast(`VAULT PROVISIONED · MEMBER #${fmt.num(me.user.id)}`);
     } catch (e) { errToast(e); }
   },
 
@@ -807,11 +822,7 @@ const actions = {
   contactSupport: () => openSupport(),
   addFunds: openDeposit,
   exportLedger: () => { window.open('/api/reports/export', '_blank'); toast('LEDGER EXPORTED · CSV'); },
-  copyReferral() {
-    const link = `osmo.money/r/${me?.user?.handle || 'you'}`;
-    navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
-    toast(`REFERRAL LINK COPIED · ${link.toUpperCase()}`);
-  },
+  copyReferral: () => toast('REFERRAL PROGRAM NOT LAUNCHED YET', 'err'),
   closeInvest,
   investMax() {
     const inv = state.invest;
@@ -830,30 +841,24 @@ const actions = {
 
   demoTransfer: () => toast('TRANSFER SIGNED + BROADCAST · DEMO'),
   demoVote: () => toast('VOTE CAST · DEMO'),
-  demoExport: () => { window.open('/api/reports/export', '_blank'); toast('REPORT EXPORTED · CSV'); },
-  demoImport: () => toast('STATEMENT IMPORT · DEMO'),
-  demoCard: () => toast('CARD ADDED TO YOUR VAULT · DEMO'),
-  demoGift: () => toast('GIFT CARD PURCHASED · DEMO'),
-  demoGoal: () => toast('GOAL CREATED · DEMO'),
-  demoRef() {
-    const link = `osmo.money/r/${me?.user?.handle || 'amara'}`;
-    navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
-    toast(`REFERRAL LINK COPIED · ${link.toUpperCase()}`);
-  },
-  demoContribute: () => toast('CONTRIBUTION PLEDGED · DEMO'),
-  demoApprove: () => toast('VENTURE APPROVED · DEMO'),
-  demoPayout: () => toast('DIVIDEND BATCH QUEUED · DEMO'),
+  // Screen hydrators replace these action names with real handlers via
+  // ctx.setAction. If one ever fires, hydration failed — say so honestly
+  // instead of toasting a success that never happened.
+  demoExport: () => { window.open('/api/reports/export', '_blank'); toast('LEDGER EXPORTED · CSV'); }, // real endpoint
+  demoImport: () => toast('STATEMENT IMPORT NOT AVAILABLE YET', 'err'),
+  demoCard: () => toast('UNAVAILABLE — RELOAD AND TRY AGAIN', 'err'),
+  demoGift: () => toast('UNAVAILABLE — RELOAD AND TRY AGAIN', 'err'),
+  demoGoal: () => toast('UNAVAILABLE — RELOAD AND TRY AGAIN', 'err'),
+  demoRef: () => toast('REFERRAL PROGRAM NOT LAUNCHED YET', 'err'),
+  demoContribute: () => toast('UNAVAILABLE — RELOAD AND TRY AGAIN', 'err'),
+  demoApprove: () => toast('UNAVAILABLE — RELOAD AND TRY AGAIN', 'err'),
+  demoPayout: () => toast('UNAVAILABLE — RELOAD AND TRY AGAIN', 'err'),
 };
 for (const s of SCREENS) actions['go' + s[0].toUpperCase() + s.slice(1)] = () => nav(s);
-for (const [name, [vName, apy]] of Object.entries(DEMO_VENTURES)) {
-  actions[name] = () => {
-    // fallback when the ventures hydrator hasn't replaced the static cards
-    state.invest = {
-      name: vName, apy, max: me?.balances?.USDC ?? 0,
-      onConfirm: async () => { toast(`STAKED IN ${vName.toUpperCase()} · DEMO`); },
-    };
-    render();
-  };
+for (const name of Object.keys(DEMO_VENTURES)) {
+  // Fallback if the ventures hydrator hasn't replaced the static cards: never
+  // open a stake modal that couldn't really stake.
+  actions[name] = () => toast('VENTURES STILL LOADING — TRY AGAIN', 'err');
 }
 
 function runAction(elx) {

@@ -59,7 +59,8 @@ async function ownCard(req) {
   return c;
 }
 
-// Month-to-date card spend from outgoing internal transfers (a demo proxy).
+// Month-to-date outgoing internal USDC transfers. Presented in the UI as
+// "outgoing this month" — NOT as card spend, since no card rail exists yet.
 async function monthSpend(userId) {
   const ym = new Date().toISOString().slice(0, 7);
   const row = await db.prepare(
@@ -100,10 +101,14 @@ export default function mount(app) {
     const cards = (await db.prepare('SELECT * FROM cards WHERE user_id = ? ORDER BY id ASC').all(req.user.id))
       .map((c) => ({ ...cardOut(c), wallets: wallets.get(c.id) || [] }));
     const spend = await monthSpend(req.user.id);
-    res.json({
-      cards, spend,
-      spendBreakdown: { groceries: round2(spend * 0.4), transit: round2(spend * 0.25), dining: round2(spend * 0.35) },
-    });
+    // No fabricated category split: transactions aren't categorized yet, so the
+    // only honest numbers are the total and the real gift-card outlay.
+    const ym = new Date().toISOString().slice(0, 7);
+    const gifts = (await db.prepare(
+      `SELECT COALESCE(SUM(-delta),0) AS s FROM ledger
+       WHERE user_id = ? AND kind = 'giftcard' AND delta < 0 AND strftime('%Y-%m', created_at) = ?`)
+      .get(req.user.id, ym))?.s ?? 0;
+    res.json({ cards, spend, spendBreakdown: { transfers: round2(spend), gifts: round2(gifts) } });
   });
 
   app.post('/api/cards', requireAuth, async (req, res, next) => {
@@ -209,11 +214,18 @@ export default function mount(app) {
         if (await balance(req.user.id, 'USDC') < amount) throw new ApiError(400, 'Insufficient USDC balance');
         await db.prepare("INSERT INTO ledger (user_id, currency, delta, kind, ref_type, memo) VALUES (?,?,?,'giftcard','card',?)")
           .run(req.user.id, 'USDC', -amount, `${brand} gift card`);
+        // Pay the advertised "% BACK IN OSM" for real — the badge in the store
+        // must never promise a reward the ledger doesn't deliver.
+        const backOsm = round2(amount * (GIFT_BRANDS[brand].back / 100));
+        if (backOsm > 0) {
+          await db.prepare("INSERT INTO ledger (user_id, currency, delta, kind, ref_type, memo) VALUES (?,?,?,'reward','card',?)")
+            .run(req.user.id, 'OSM', backOsm, `${brand} gift card ${GIFT_BRANDS[brand].back}% back`);
+        }
         const code = `${brand.slice(0, 3)}-${randomInt(1000, 9999)}-${randomInt(1000, 9999)}-${randomInt(1000, 9999)}`;
         const id = Number((await db.prepare('INSERT INTO gift_cards (user_id, brand, amount, code) VALUES (?,?,?,?)')
           .run(req.user.id, brand, amount, code)).lastInsertRowid);
-        await audit(req.user.id, 'giftcard.buy', `gift:${id}`, `${brand} $${amount}`);
-        return { id, brand, amount, code, back: GIFT_BRANDS[brand].back };
+        await audit(req.user.id, 'giftcard.buy', `gift:${id}`, `${brand} $${amount} (+${backOsm} OSM back)`);
+        return { id, brand, amount, code, back: GIFT_BRANDS[brand].back, backOsm };
       });
       res.status(201).json({ gift: out, balance: await balance(req.user.id, 'USDC') });
     } catch (e) { next(e); }

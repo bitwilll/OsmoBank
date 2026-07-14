@@ -25,7 +25,7 @@ test('all dao endpoints require auth (401)', async () => {
 
 // ---- proposals list ---------------------------------------------------------
 
-test('GET /api/proposals: live first then recent, baseline pcts on OSM-042', async () => {
+test('GET /api/proposals: live first then recent, real tallies start at zero', async () => {
   const { c } = await registerMember(base);
   const r = await c.get('/api/proposals');
   assert.equal(r.status, 200);
@@ -35,12 +35,12 @@ test('GET /api/proposals: live first then recent, baseline pcts on OSM-042', asy
   assert.deepEqual(props.map((p) => p.status), ['live', 'passed', 'passed', 'rejected']);
 
   const live = props[0];
-  // Synthetic baseline 10123 FOR / 4759 AGAINST -> 68.02 / 31.98 with no real votes yet.
-  assert.equal(live.forPct, 68.02);
-  assert.equal(live.againstPct, 31.98);
-  assert.equal(live.voters, 14882); // synthetic launch-day headcount, coherent with the tally
+  // No synthetic baseline: with no real votes the tally is honestly zero.
+  assert.equal(live.forPct, 0);
+  assert.equal(live.againstPct, 0);
+  assert.equal(live.voters, 0);
   assert.equal(live.quorumPct, 30);
-  assert.equal(live.quorumReached, false); // baseline power alone is under 30% of OSM supply
+  assert.equal(live.quorumReached, false);
   assert.equal(live.yourVote, null);
   assert.ok(typeof live.endsAt === 'string' && live.endsAt.length > 0);
   assert.ok(typeof live.id === 'number');
@@ -56,23 +56,21 @@ test('POST /api/proposals/:id/vote: vote counts caller OSM power, re-vote replac
   const r1 = await c.post(`/api/proposals/${liveId}/vote`, { support: true });
   assert.equal(r1.status, 200);
   assert.equal(r1.json.proposal.yourVote, true);
-  assert.equal(r1.json.proposal.voters, 14883); // baseline 14882 + this member
-  // (10123 + 10) / (14882 + 10) = 68.04
-  assert.equal(r1.json.proposal.forPct, 68.04);
+  assert.equal(r1.json.proposal.voters, 1); // this member is the first real voter
+  assert.equal(r1.json.proposal.forPct, 100);
 
   // Re-vote flips the same vote — no extra voter row.
   const r2 = await c.post(`/api/proposals/${liveId}/vote`, { support: false });
   assert.equal(r2.status, 200);
   assert.equal(r2.json.proposal.yourVote, false);
-  assert.equal(r2.json.proposal.voters, 14883);
-  // 10123 / (14882 + 10) = 67.98, (4759 + 10) / 14892 = 32.02
-  assert.equal(r2.json.proposal.forPct, 67.98);
-  assert.equal(r2.json.proposal.againstPct, 32.02);
+  assert.equal(r2.json.proposal.voters, 1);
+  assert.equal(r2.json.proposal.forPct, 0);
+  assert.equal(r2.json.proposal.againstPct, 100);
 
   // The list reflects the persisted vote too.
   const list = await c.get('/api/proposals');
   assert.equal(list.json.proposals[0].yourVote, false);
-  assert.equal(list.json.proposals[0].voters, 14883);
+  assert.equal(list.json.proposals[0].voters, 1);
 });
 
 test('vote validation: bad support, closed proposal, missing proposal, bad id', async () => {
@@ -109,7 +107,7 @@ test('votes are private per caller: another member sees yourVote null', async ()
 
 // ---- fundraiser detail -------------------------------------------------------
 
-test('GET /api/fundraiser: computed pct/time-left, static useOfFunds and updates', async () => {
+test('GET /api/fundraiser: computed pct/time-left, no fabricated panels', async () => {
   const { c } = await registerMember(base);
   const r = await c.get('/api/fundraiser');
   assert.equal(r.status, 200);
@@ -126,11 +124,10 @@ test('GET /api/fundraiser: computed pct/time-left, static useOfFunds and updates
   assert.equal(f.daysLeft, 9);
   assert.ok(f.hoursLeft === 5 || f.hoursLeft === 6, `hoursLeft was ${f.hoursLeft}`);
 
-  assert.equal(f.useOfFunds.length, 3);
-  assert.equal(f.useOfFunds.reduce((s, u) => s + u.amount, 0), 2400000);
-  assert.deepEqual(f.useOfFunds.map((u) => u.amount), [1400000, 700000, 300000]);
-  assert.ok(f.useOfFunds[0].label.toLowerCase().includes('reef'));
-  assert.ok(Array.isArray(f.updates) && f.updates.length > 0);
+  // No fabricated budget lines or progress announcements — empty until real
+  // per-fundraiser records exist (the client hides these sections).
+  assert.deepEqual(f.useOfFunds, []);
+  assert.deepEqual(f.updates, []);
 
   assert.equal(f.ventureName, 'Nova Reef');
   assert.equal(f.proposalCode, 'OSM-042');

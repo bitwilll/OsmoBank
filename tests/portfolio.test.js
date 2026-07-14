@@ -114,7 +114,7 @@ test('reports for a fresh member: seed-only YTD aggregates', async () => {
   const rep = r.json;
 
   assert.equal(rep.netWorthYtd, 12450); // USDC seed; OSM excluded
-  assert.equal(rep.netWorthYtdPct, 100); // no prior-year baseline
+  assert.equal(rep.netWorthYtdPct, null); // no prior-year baseline → no honest percentage
   assert.equal(rep.dividendsYtd, 0);
   assert.equal(rep.feesYtd, 0);
   assert.equal(rep.receiptsFiled, 0);
@@ -124,7 +124,7 @@ test('reports for a fresh member: seed-only YTD aggregates', async () => {
   assert.equal(rep.statements.length, 1);
   assert.equal(rep.statements[0].month, currentYm());
   assert.equal(rep.statements[0].txCount, 2);
-  assert.ok(rep.statements[0].sizeMb > 0);
+  assert.equal(rep.statements[0].sizeMb, undefined); // no invented file sizes
 });
 
 test('reports for the manager exclude invest debits from net worth', async () => {

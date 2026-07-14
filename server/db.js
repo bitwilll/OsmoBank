@@ -235,6 +235,8 @@ CREATE TABLE IF NOT EXISTS card_provisions (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(card_id, platform));
+CREATE TABLE IF NOT EXISTS meta (
+  key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS support_tickets (
   id INTEGER PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
@@ -245,6 +247,16 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE INDEX IF NOT EXISTS idx_support_status ON support_tickets(status, id);
 `;
+
+// Operator identity comes from the environment where provided; the defaults
+// keep local/test setups working unchanged.
+const adminEmail = () => (process.env.OSMO_ADMIN_EMAIL || 'admin@osmo.money').toLowerCase();
+const managerEmail = () => (process.env.OSMO_MANAGER_EMAIL || 'marisol@osmo.money').toLowerCase();
+
+// Demo fixtures (sample members, ventures, proposals, a fundraiser) are seeded
+// ONLY when OSMO_SEED_DEMO=1 — used by tests and local demos. Production seeds
+// just the two operator accounts, so every number members see is real.
+const seedDemo = () => process.env.OSMO_SEED_DEMO === '1';
 
 async function seed() {
   const adminPass = process.env.OSMO_ADMIN_PASS || randomBytes(9).toString('base64url');
@@ -258,8 +270,15 @@ async function seed() {
       "INSERT INTO ledger (user_id, currency, delta, kind, memo) VALUES (?,?,?,'seed',?)")
       .run(uid, cur, delta, memo);
 
-    const adminId = Number((await addUser('admin', 'Osmo Operator', 'admin@osmo.money', hashPass(adminPass), 'admin', 'active')).lastInsertRowid);
-    const marisolId = Number((await addUser('marisol', 'Marisol Vega', 'marisol@osmo.money', hashPass(managerPass), 'manager', 'active')).lastInsertRowid);
+    const adminId = Number((await addUser('admin', 'Osmo Operator', adminEmail(), hashPass(adminPass), 'admin', 'active')).lastInsertRowid);
+    const marisolId = Number((await addUser('marisol', 'Marisol Vega', managerEmail(), hashPass(managerPass), 'manager', 'active')).lastInsertRowid);
+
+    if (!seedDemo()) {
+      // Clean production seed: operators only, zero balances, no fixtures.
+      await audit(adminId, 'seed', 'db', 'operators seed (no demo fixtures)');
+      return;
+    }
+
     const demo = [];
     for (const [h, n, e, s] of [
       ['rosa', 'Rosa Delgado', 'rosa@osmo.money', 'active'],
@@ -326,15 +345,67 @@ async function seed() {
 
   /* eslint-disable no-console */
   console.log('OsmoBank seeded. Operator sign-in (shown once):');
-  console.log(`  admin   → admin@osmo.money   / ${adminPass}`);
-  console.log(`  manager → marisol@osmo.money / ${managerPass}`);
+  console.log(`  admin   → ${adminEmail()}   / ${adminPass}`);
+  console.log(`  manager → ${managerEmail()} / ${managerPass}`);
 }
 
-// The environment is authoritative for operator credentials: if OSMO_ADMIN_PASS /
-// OSMO_MANAGER_PASS are set (or changed) AFTER the first seed — e.g. added to the
-// deployment later — update the stored hash on cold start so operators are never
-// locked out behind a random seed-time password. Local duplicate of verifyPass
-// (lib/util.js imports this module, so importing it back would be a cycle).
+// One-shot cleanup for databases that were seeded with demo fixtures BEFORE
+// the OSMO_SEED_DEMO gate existed (e.g. the first production deploy). Removes
+// exactly the known seeded rows — demo members, ventures, proposals, the
+// fundraiser, and 'seed' founding balances — never anything a real member
+// created. Recorded in `meta` so it runs once.
+const DEMO_HANDLES = ['rosa', 'tunde', 'lena'];
+const DEMO_VENTURES = ['Helios Grid', 'Ferrymill Robotics', 'Atlas Dry Ports', 'Nova Reef',
+  'Kite Mesh', 'Meridian Water', 'Terrace Farms', 'Kite Mesh — Metro 4'];
+const DEMO_PROPOSALS = ['OSM-039', 'OSM-040', 'OSM-041', 'OSM-042'];
+
+async function purgeDemoContent() {
+  if (await db.prepare("SELECT 1 FROM meta WHERE key = 'demo_purged'").get()) return;
+  await tx(async () => {
+    const marks = (xs) => xs.map(() => '?').join(',');
+    const ids = async (sql, args) => (await db.prepare(sql).all(...args)).map((r) => Number(r.id));
+
+    const uids = await ids(`SELECT id FROM users WHERE handle IN (${marks(DEMO_HANDLES)})`, DEMO_HANDLES);
+    const vids = await ids(`SELECT id FROM ventures WHERE name IN (${marks(DEMO_VENTURES)})`, DEMO_VENTURES);
+    const pids = await ids(`SELECT id FROM proposals WHERE code IN (${marks(DEMO_PROPOSALS)})`, DEMO_PROPOSALS);
+
+    if (pids.length) {
+      await db.prepare(`DELETE FROM votes WHERE proposal_id IN (${marks(pids)})`).run(...pids);
+      await db.prepare(`DELETE FROM proposals WHERE id IN (${marks(pids)})`).run(...pids);
+    }
+    if (vids.length) {
+      const fids = await ids(`SELECT id FROM fundraisers WHERE venture_id IN (${marks(vids)})`, vids);
+      if (fids.length) {
+        await db.prepare(`DELETE FROM ledger WHERE ref_type = 'fundraiser' AND ref_id IN (${marks(fids)})`).run(...fids);
+        await db.prepare(`DELETE FROM fundraisers WHERE id IN (${marks(fids)})`).run(...fids);
+      }
+      await db.prepare(`DELETE FROM payout_items WHERE payout_id IN (SELECT id FROM payouts WHERE venture_id IN (${marks(vids)}))`).run(...vids);
+      await db.prepare(`DELETE FROM payouts WHERE venture_id IN (${marks(vids)})`).run(...vids);
+      await db.prepare(`DELETE FROM investments WHERE venture_id IN (${marks(vids)})`).run(...vids);
+      await db.prepare(`DELETE FROM ledger WHERE ref_type = 'venture' AND ref_id IN (${marks(vids)})`).run(...vids);
+      await db.prepare(`DELETE FROM ventures WHERE id IN (${marks(vids)})`).run(...vids);
+    }
+    await db.prepare("DELETE FROM ledger WHERE kind = 'seed'").run(); // founding balances, incl. operators'
+    if (uids.length) {
+      for (const table of ['sessions', 'wallets', 'ledger', 'investments', 'votes', 'goals', 'cards',
+        'card_provisions', 'gift_cards', 'password_resets', 'user_2fa', 'passkeys', 'support_tickets', 'audit_log']) {
+        const col = table === 'audit_log' ? 'actor_id' : 'user_id';
+        await db.prepare(`DELETE FROM ${table} WHERE ${col} IN (${marks(uids)})`).run(...uids);
+      }
+      await db.prepare(`DELETE FROM transfers WHERE from_user IN (${marks(uids)}) OR to_user IN (${marks(uids)})`).run(...uids, ...uids);
+      await db.prepare(`DELETE FROM users WHERE id IN (${marks(uids)})`).run(...uids);
+    }
+    await db.prepare("INSERT INTO meta (key, value) VALUES ('demo_purged', datetime('now'))").run();
+  });
+  console.error('demo fixtures purged (one-shot migration)');
+}
+
+// The environment is authoritative for operator identity: if OSMO_ADMIN_PASS /
+// OSMO_MANAGER_PASS / OSMO_ADMIN_EMAIL are set (or changed) AFTER the first
+// seed — e.g. added to the deployment later — update the stored row on cold
+// start so operators are never locked out behind a random seed-time password
+// or a stale address. Local duplicate of verifyPass (lib/util.js imports this
+// module, so importing it back would be a cycle).
 function passMatches(passphrase, stored) {
   const [scheme, salt, hash] = String(stored).split(':');
   if (scheme !== 'scrypt' || !salt || !hash) return false;
@@ -343,12 +414,24 @@ function passMatches(passphrase, stored) {
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
-async function syncOperatorPass(email, pass) {
-  if (!pass) return;
-  const row = await db.prepare('SELECT id, pass FROM users WHERE email = ?').get(email);
-  if (!row || passMatches(pass, row.pass)) return;
-  await db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(hashPass(pass), row.id);
-  await audit(row.id, 'pass_sync', 'user:' + row.id, 'operator password updated from environment');
+async function syncOperator(handle, pass, email) {
+  const row = await db.prepare('SELECT id, pass, email FROM users WHERE handle = ?').get(handle);
+  if (!row) return;
+  if (email && row.email !== email) {
+    try {
+      await db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, row.id);
+      await audit(row.id, 'email_sync', 'user:' + row.id, 'operator email updated from environment');
+    } catch (e) {
+      // The address is already taken by another account — leave the old one
+      // rather than failing every request from initDb.
+      if (!/UNIQUE|constraint/i.test(String(e?.message))) throw e;
+      console.error(`operator email sync skipped: ${email} already in use`);
+    }
+  }
+  if (pass && !passMatches(pass, row.pass)) {
+    await db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(hashPass(pass), row.id);
+    await audit(row.id, 'pass_sync', 'user:' + row.id, 'operator password updated from environment');
+  }
 }
 
 // ---- one-time initialisation (schema + seed) -------------------------------
@@ -367,8 +450,9 @@ export function initDb() {
         }
       }
     }
-    await syncOperatorPass('admin@osmo.money', process.env.OSMO_ADMIN_PASS);
-    await syncOperatorPass('marisol@osmo.money', process.env.OSMO_MANAGER_PASS);
+    if (!seedDemo()) await purgeDemoContent();
+    await syncOperator('admin', process.env.OSMO_ADMIN_PASS, adminEmail());
+    await syncOperator('marisol', process.env.OSMO_MANAGER_PASS, managerEmail());
   })().catch((e) => {
     // Never cache a failed init (e.g. the DB is unreachable / not yet
     // configured). Clearing the memo lets the next request retry, so the

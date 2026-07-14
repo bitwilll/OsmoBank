@@ -1,8 +1,8 @@
 /* Governance screen: live proposal voting, recent proposals, treasury export.
  * Data: GET /api/proposals + ctx.me(); votes via POST /api/proposals/:id/vote. */
 
-// NOTE: the server (/api/proposals) already folds the synthetic launch-day
-// turnout baseline into `voters`, so the client must not add it again.
+// NOTE: tallies from /api/proposals are real votes only (no synthetic
+// baseline) — a live proposal can honestly show 0 voters / 0%.
 
 let liveProposal = null; // latest live proposal seen by fill(); used by vote action
 
@@ -62,8 +62,8 @@ async function fill(root, ctx) {
     put('gov.blurb', 'When a member proposal opens for a vote it will appear here — check back soon.');
     const meter = ctx.slot(root, 'gov.meterFor');
     if (meter) meter.style.width = '0%';
-    put('gov.forPct', `FOR ${fmt.pct(0, 0)}`);
-    put('gov.tally', `· AGAINST ${fmt.pct(0, 0)} · ${fmt.num(0)} VOTERS`);
+    put('gov.forPct', '');
+    put('gov.tally', '');
     if (actions) actions.style.display = 'none';
   }
   const chip = ctx.slot(root, 'gov.yourVote');
@@ -123,7 +123,7 @@ export async function hydrate(root, ctx) {
   if (!root.dataset.hydrated) {
     root.dataset.hydrated = '1';
     ctx.setAction('demoVote', (el) => castVote(root, ctx, el?.dataset?.support !== 'false'));
-    ctx.setAction('govReadFull', () => ctx.toast('PROPOSAL TEXT · IPFS MIRROR · DEMO'));
+    ctx.setAction('govReadFull', () => ctx.toast('FULL PROPOSAL TEXT NOT AVAILABLE YET', 'err'));
   }
   try {
     await fill(root, ctx);

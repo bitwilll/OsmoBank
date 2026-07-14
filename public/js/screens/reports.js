@@ -69,7 +69,7 @@ export async function hydrate(root, ctx) {
   const { api, fmt, slot, list, toast, errToast, setAction } = ctx;
 
   if (!root.dataset.hydrated) {
-    setAction('addReceipt', () => toast('RECEIPT SNAPPED · MATCHED TO CARD SPEND · DEMO'));
+    setAction('addReceipt', () => toast('RECEIPT UPLOAD NOT AVAILABLE YET', 'err'));
     // "Export CSV / PDF" now opens a format chooser instead of a direct CSV download.
     setAction('demoExport', () => openExportChooser(ctx));
     // per-month statement download icons stream the PDF statement directly.
@@ -90,9 +90,12 @@ export async function hydrate(root, ctx) {
   const nwEl = slot(root, 'reports.netWorth');
   nwEl.textContent = fmt.signedUsd(nw);
   nwEl.style.color = nw >= 0 ? GRN : AMBER;
-  const pct = Number(rep.netWorthYtdPct ?? 0);
+  // netWorthYtdPct can be null (no baseline to compare against) — render a dash.
+  const pctRaw = rep.netWorthYtdPct;
   slot(root, 'reports.netWorthSub').textContent =
-    `${pct >= 0 ? '+' : '−'}${fmt.pct(Math.abs(pct))} SINCE JAN 01`;
+    pctRaw == null
+      ? '—'
+      : `${Number(pctRaw) >= 0 ? '+' : '−'}${fmt.pct(Math.abs(Number(pctRaw)))} SINCE JAN 01`;
 
   const paid = (rep.dividendLedger || []).filter((d) => d.status === 'paid');
   slot(root, 'reports.dividends').textContent = fmt.usd(rep.dividendsYtd);
@@ -155,8 +158,8 @@ export async function hydrate(root, ctx) {
   for (const s of rep.statements || []) {
     const row = st.add();
     slot(row, 'm').textContent = monthName(s.month);
-    slot(row, 'meta').textContent =
-      `${fmt.num(s.txCount)} TX · ${Number(s.sizeMb ?? 0).toFixed(1)} MB`;
+    // Server no longer reports a statement file size — show the tx count only.
+    slot(row, 'meta').textContent = `${fmt.num(s.txCount)} TX`;
     // the cloned download icon keeps data-action="exportPdf"
     // (screen action: window.open('/api/reports/export?format=pdf'))
   }

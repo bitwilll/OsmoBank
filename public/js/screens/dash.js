@@ -2,9 +2,10 @@
  * your ventures, recent activity, goals, card, referral. Everything below is
  * the member's real data (or an honest empty state); no demo figures. */
 
-// Reference spot prices used only to value on-chain holdings a member actually
-// holds (a brand-new account holds nothing, so these never fabricate a balance).
-const RATES = { BTC: 60684, ETH: 3530, SOL: 37.84, OSM: 0.4182 };
+// Live spot quotes (shared module; cached, null when unavailable). We NEVER
+// value a holding at a hard-coded rate: no quote → '—'. OSM has no market
+// price at all, so its USD value always renders '—'.
+import { getPrices } from '../prices.js';
 
 const shortAddr = (a) => (a ? `${a.slice(0, 4)}…${a.slice(-3)}` : '');
 
@@ -46,6 +47,8 @@ export async function hydrate(root, ctx) {
   // Guard against overlapping hydrations (screen left + re-entered mid-fetch).
   const seq = (root.__dashSeq = (root.__dashSeq || 0) + 1);
 
+  const pricesPromise = getPrices(); // never rejects; resolves null when no live quote exists
+
   let meData, portfolio, proposals, walletsRes, reports, activityRes, goalsRes, cardsRes;
   try {
     [meData, portfolio, proposals, walletsRes, reports, activityRes, goalsRes, cardsRes] = await Promise.all([
@@ -67,19 +70,57 @@ export async function hydrate(root, ctx) {
   const usdc = Number(meData?.balances?.USDC || 0);
   const osm = Number(meData?.balances?.OSM || 0);
   const positions = portfolio?.positions || [];
-  const total = usdc + osm * RATES.OSM + Number(portfolio?.deployed || 0);
+  const deployed = Number(portfolio?.deployed || 0);
+
+  // On-chain balances and live quotes are needed before we can state an honest
+  // headline total, so fetch them up front (quotes were kicked off above).
+  const unlocked = wallet.isUnlocked();
+  let addrs = {};
+  let chains = null; // null = balances unavailable (locked wallet or chain APIs down)
+  if (unlocked) {
+    addrs = wallet.addresses() || {};
+    try { chains = await wallet.chainBalances(); } catch { chains = null; }
+    if (root.__dashSeq !== seq) return; // superseded while awaiting on-chain APIs
+  }
+  const prices = await pricesPromise;
+  if (root.__dashSeq !== seq) return;
+
+  const btc = chains ? Number(chains[wallet.BTC_CHAIN] ?? 0) : null;
+  const eth = chains ? Number(chains[wallet.ETH_CHAIN] ?? 0) : null;
+  const btcUsd = btc != null && prices?.BTC?.usd != null ? btc * prices.BTC.usd : null;
+  const ethUsd = eth != null && prices?.ETH?.usd != null ? eth * prices.ETH.usd : null;
 
   // ---- total assets ---------------------------------------------------------
+  // Real dollars (USDC ledger + capital deployed in ventures) plus chain
+  // holdings valued at live quotes. OSM has no market price and is never
+  // included. Anything we cannot value honestly is excluded and disclosed.
+  let total = usdc + deployed;
+  const excluded = [];
+  if (unlocked) {
+    if (btcUsd != null) total += btcUsd;
+    else if (btc == null || btc > 0) excluded.push(btc == null ? 'BTC' : `${btc.toFixed(5)} BTC`);
+    if (ethUsd != null) total += ethUsd;
+    else if (eth == null || eth > 0) excluded.push(eth == null ? 'ETH' : `${eth.toFixed(4)} ETH`);
+  }
   const [ints, cents] = fmt.usd2(total).split('.');
   slot(root, 'dash.totalAssets').textContent = ints;
   slot(root, 'dash.totalAssetsCents').textContent = `.${cents}`;
+  const note = slot(root, 'dash.quoteNote');
+  if (note) {
+    if (excluded.length) {
+      note.textContent = `EXCLUDES ${excluded.join(' · ')} — LIVE DATA UNAVAILABLE`;
+      note.style.display = '';
+    } else {
+      note.style.display = 'none';
+    }
+  }
 
   const divYtd = reports?.dividendsYtd ?? positions.reduce((s, p) => s + Number(p.dividendsPaid || 0), 0);
   const walletCount = (walletsRes?.wallets?.length || 0) + 2; // on-chain wallets + USDC & OSM ledgers
   slot(root, 'dash.ytd').textContent = `${fmt.signedUsd(divYtd)} YTD`;
   slot(root, 'dash.walletVenture').textContent =
-    `${fmt.num(walletCount)} WALLETS · ${fmt.num(positions.length)} VENTURES`;
-  slot(root, 'dash.walletsHead').textContent = `WALLETS / ${fmt.num(walletCount)} ACTIVE`;
+    `${fmt.num(walletCount)} ACCOUNTS · ${fmt.num(positions.length)} VENTURES`;
+  slot(root, 'dash.walletsHead').textContent = `ACCOUNTS / ${fmt.num(walletCount)} ACTIVE`;
   const vpl = slot(root, 'dash.venturesPl');
   if (vpl) {
     const netPl = Number(portfolio?.netPl || 0);
@@ -99,6 +140,10 @@ export async function hydrate(root, ctx) {
     slot(root, 'dash.nextDivLabel').textContent = 'NEXT DIVIDEND · —';
     slot(root, 'dash.nextDivVenture').textContent = 'No dividend scheduled yet';
   }
+  // No real accrual series exists, so the ring always renders at 0% — never a
+  // fabricated progress arc.
+  const ring = slot(root, 'dash.nextDivRing');
+  if (ring) ring.style.background = 'conic-gradient(var(--ink,#0a0a0a) 0 0%, var(--hr,#e4e4e4) 0% 100%)';
 
   // ---- live vote card -------------------------------------------------------
   const live = (proposals?.proposals || []).find((p) => p.status === 'live');
@@ -134,43 +179,44 @@ export async function hydrate(root, ctx) {
       sub.textContent = a.sub;
     }
     slot(row, 'dash.asset.bal').textContent = a.bal;
-    slot(row, 'dash.asset.value').textContent = fmt.usd(a.value);
-    // We do not track a 24h price series, so we show "—" rather than a fabricated change.
+    // value: real dollars or a live-quote valuation; '—' when no honest number exists.
+    slot(row, 'dash.asset.value').textContent = a.value != null ? fmt.usd(a.value) : '—';
+    // 24h: live market change for chain assets; '—' for USDC/OSM (no price series).
     const chg = slot(row, 'dash.asset.chg');
-    chg.textContent = '—';
-    chg.style.color = 'var(--fnt,#a3a3a3)';
-    const share = total > 0 ? (a.value / total) * 100 : 0;
+    if (a.chg24h != null && Number.isFinite(Number(a.chg24h))) {
+      const c = Number(a.chg24h);
+      chg.textContent = `${c >= 0 ? '+' : '−'}${Math.abs(c).toFixed(1)}`;
+      chg.style.color = c >= 0 ? 'var(--grn,#17a562)' : 'var(--red,#c47b10)';
+    } else {
+      chg.textContent = '—';
+      chg.style.color = 'var(--fnt,#a3a3a3)';
+    }
+    const share = a.value != null && total > 0 ? Math.max(0, Math.min(100, (a.value / total) * 100)) : null;
     const fill = slot(row, 'dash.asset.meterFill');
-    fill.style.width = `${Math.max(0, Math.min(100, share))}%`;
+    fill.style.width = `${share ?? 0}%`;
     fill.style.backgroundImage = `radial-gradient(circle,${a.color} 1.6px,transparent 2.1px)`;
-    slot(row, 'dash.asset.share').textContent = fmt.pct(share, 1).replace('%', '');
+    slot(row, 'dash.asset.share').textContent = share != null ? fmt.pct(share, 1).replace('%', '') : '—';
   };
 
   addRow({
     color: '#2775ca', name: 'USD Coin', sub: 'SPENDING',
-    bal: fmt.usd2(usdc).slice(1), value: usdc,
+    bal: fmt.usd2(usdc).slice(1), value: usdc, chg24h: null, // ledger dollars — no market change
   });
   addRow({
     color: '#c47b10', name: 'OSM', badge: 'GOVERNANCE',
-    bal: fmt.num(osm), value: osm * RATES.OSM,
+    bal: fmt.num(osm), value: null, chg24h: null, // OSM has no market price — USD value stays '—'
   });
 
-  if (wallet.isUnlocked()) {
-    const addrs = wallet.addresses() || {};
-    let chains = null;
-    try { chains = await wallet.chainBalances(); } catch { chains = null; }
-    if (root.__dashSeq !== seq) return; // superseded while awaiting on-chain APIs
+  if (unlocked) {
     const btcKey = wallet.BTC_CHAIN;
     const ethKey = wallet.ETH_CHAIN;
-    const btc = Number(chains?.[btcKey] ?? 0);
-    const eth = Number(chains?.[ethKey] ?? 0);
     addRow({
       color: '#f7931a', name: 'Bitcoin', sub: shortAddr(addrs[btcKey]) || wallet.CHAINS[btcKey].symbol,
-      bal: btc.toFixed(5), value: btc * RATES.BTC,
+      bal: btc != null ? btc.toFixed(5) : '—', value: btcUsd, chg24h: prices?.BTC?.chg24h ?? null,
     });
     addRow({
       color: '#627eea', name: 'Ethereum', sub: shortAddr(addrs[ethKey]) || wallet.CHAINS[ethKey].symbol,
-      bal: eth.toFixed(4), value: eth * RATES.ETH,
+      bal: eth != null ? eth.toFixed(4) : '—', value: ethUsd, chg24h: prices?.ETH?.chg24h ?? null,
     });
   }
 

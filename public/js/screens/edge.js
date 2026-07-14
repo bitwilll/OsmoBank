@@ -114,8 +114,14 @@ export async function hydrate(root, ctx) {
     `ACROSS ${positions.length} VENTURE${positions.length === 1 ? '' : 'S'}`);
 
   put(ctx.slot(root, 'edge.currentValue'), fmt.usd(p.currentValue));
-  put(ctx.slot(root, 'edge.markedAt'),
-    `MARKED ${fmt.date(new Date().toISOString())} · 06:00 UTC`);
+  // Mark timestamp = the actual moment this data was fetched, rendered in UTC.
+  const markedAt = new Date();
+  const markedDay = markedAt
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    .toUpperCase();
+  const markedTime =
+    `${String(markedAt.getUTCHours()).padStart(2, '0')}:${String(markedAt.getUTCMinutes()).padStart(2, '0')}`;
+  put(ctx.slot(root, 'edge.markedAt'), `MARKED ${markedDay} · ${markedTime} UTC`);
 
   const prev = series.length > 1 ? Number(series[series.length - 2].value) || 0 : last;
   const monthDelta = last - prev;

@@ -7,17 +7,15 @@
  *  - RECENT RECIPIENTS is filled from GET /api/transfers (top 5).
  * All server/user data goes through textContent only. */
 
-// On-chain USD reference rates (display only).
-const BTC = 60684;
-const ETH = 3530;
+import { getPrices, usdAt } from '../prices.js';
 
 // FROM sources, cycled by the cycleFrom action. The on-chain rows' chain key,
 // name and symbol are filled from ctx.wallet at hydrate time so this screen
 // tracks whatever network the wallet module is on (mainnet by default).
 const FROMS = [
-  { key: 'usdc', chain: 'internal', dot: '#2775ca', name: 'USD Coin · internal', sym: 'USDC', rate: 1 },
-  { key: 'btc', chain: null, dot: '#f7931a', name: 'Bitcoin', sym: 'BTC', rate: BTC },
-  { key: 'eth', chain: null, dot: '#627eea', name: 'Ethereum', sym: 'ETH', rate: ETH },
+  { key: 'usdc', chain: 'internal', dot: '#2775ca', name: 'USD Coin · internal', sym: 'USDC' },
+  { key: 'btc', chain: null, dot: '#f7931a', name: 'Bitcoin', sym: 'BTC' },
+  { key: 'eth', chain: null, dot: '#627eea', name: 'Ethereum', sym: 'ETH' },
 ];
 
 function bindNetwork(ctx) {
@@ -96,13 +94,19 @@ function updateFrom(root, ctx) {
   if (av) av.textContent = availText(ctx);
 }
 
-function updateAmountUsd(root, ctx) {
+let amountUsdToken = 0; // drops out-of-order quote renders (rapid typing / source cycling)
+async function updateAmountUsd(root, ctx) {
   const f = FROMS[selectedIdx];
   const amtEl = ctx.slot(root, 'transfer.amount');
   const out = ctx.slot(root, 'transfer.amountUsd');
   if (!out) return;
   const amt = Number(amtEl?.value || 0);
-  out.textContent = f.key === 'usdc' ? ctx.fmt.usd2(amt) : '≈' + ctx.fmt.usd2(amt * f.rate);
+  if (f.key === 'usdc') { amountUsdToken++; out.textContent = ctx.fmt.usd2(amt); return; }
+  const token = ++amountUsdToken;
+  out.textContent = '≈ —'; // neutral while the live quote loads
+  const p = await getPrices(); // null when no live quote → usdAt renders '—'
+  if (token !== amountUsdToken) return;
+  out.textContent = '≈ ' + usdAt(p, f.sym, amt);
 }
 
 function styleChips(root, ctx) {
@@ -127,13 +131,22 @@ async function loadBtcFees(ctx) {
   const base = `https://mempool.space${ctx.wallet.IS_MAINNET ? '' : '/testnet'}/api`;
   try {
     const r = await fetch(`${base}/v1/fees/recommended`);
+    if (!r.ok) throw new Error(`fee feed ${r.status}`);
     btcFees = await r.json();
-  } catch { btcFees = { economyFee: 1, halfHourFee: 2, fastestFee: 3 }; }
+  } catch { btcFees = null; } // no live estimate → FEE UNAVAILABLE, never invented numbers
   return btcFees;
 }
 
+let feeToken = 0; // drops out-of-order fee renders (rapid source cycling mid-fetch)
 async function updateFee(root, ctx) {
+  const token = ++feeToken;
   const f = FROMS[selectedIdx];
+
+  // ECO/STANDARD/PRIORITY chips map to mempool.space BTC fee tiers — they mean
+  // nothing for the internal USDC ledger or ETH gas, so hide the grid there.
+  const chips = ctx.slot(root, 'transfer.feeChips');
+  if (chips) chips.style.display = f.key === 'btc' ? '' : 'none';
+
   const lab = ctx.slot(root, 'transfer.feeLabel');
   const val = ctx.slot(root, 'transfer.feeValue');
   const arr = ctx.slot(root, 'transfer.arrivesValue');
@@ -159,11 +172,15 @@ async function updateFee(root, ctx) {
   lab.textContent = `FEE (${names[selectedFee]})`;
   arr.textContent = mins[selectedFee];
   val.textContent = '…';
+  let rate = null;
   try {
     const fees = await loadBtcFees(ctx);
-    const rate = Math.max(1, Math.round(Number(fees?.[field] ?? 1)));
-    val.textContent = `${rate} sat/vB`;
-  } catch { val.textContent = '1 sat/vB'; }
+    const n = Number(fees?.[field]);
+    if (Number.isFinite(n) && n > 0) rate = Math.max(1, Math.round(n));
+  } catch { /* fall through to the unavailable state */ }
+  if (token !== feeToken) return;
+  val.textContent = rate != null ? `${rate} sat/vB` : 'FEE UNAVAILABLE';
+  arr.textContent = rate != null ? mins[selectedFee] : '—';
 }
 
 // ---- recent recipients -------------------------------------------------------

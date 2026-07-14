@@ -9,12 +9,16 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-export async function bootServer() {
+export async function bootServer(envOverrides = {}) {
   const port = 20000 + Math.floor(Math.random() * 20000);
-  const dbPath = join(mkdtempSync(join(tmpdir(), 'osmo-')), 'test.db');
+  const dbPath = envOverrides.OSMO_DB || join(mkdtempSync(join(tmpdir(), 'osmo-')), 'test.db');
   const child = spawn(process.execPath, ['server/index.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(port), OSMO_DB: dbPath, OSMO_ADMIN_PASS: 'admin-test-pass-123', OSMO_MANAGER_PASS: 'manager-test-pass-123' },
+    env: {
+      ...process.env, PORT: String(port), OSMO_DB: dbPath, OSMO_SEED_DEMO: '1',
+      OSMO_ADMIN_PASS: 'admin-test-pass-123', OSMO_MANAGER_PASS: 'manager-test-pass-123',
+      ...envOverrides,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let logs = '';
@@ -34,6 +38,7 @@ export async function bootServer() {
   return {
     base,
     child,
+    dbPath,
     logs: () => logs,
     stop: () => child.kill('SIGKILL'),
   };
@@ -75,6 +80,7 @@ export async function registerMember(base, overrides = {}) {
     handle: `tester${n}`,
     email: `tester${n}@example.com`,
     passphrase: 'correct-horse-battery',
+    disclaimerAccepted: true,
     ...overrides,
   });
   if (r.status !== 201) throw new Error(`register failed: ${r.status} ${JSON.stringify(r.json)}`);

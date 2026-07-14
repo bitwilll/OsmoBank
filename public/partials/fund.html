@@ -11,23 +11,31 @@
     </div>
   </div>
 
-  <div style="max-width:1140px;margin:0 auto;padding:clamp(28px,5vw,52px) clamp(16px,3vw,44px) 44px">
-    <div style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:#1fb597">waves</span>OCEAN · SERIES B · AUDITED BY FIELDSTONE</div>
-    <div data-slot="fund.title" style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(36px,6vw,68px);line-height:1.05;margin-top:14px;letter-spacing:.01em">NOVA REEF<br>SERIES B RAISE</div>
-    <div style="max-width:640px;font-size:clamp(14px,1.6vw,16px);line-height:1.7;color:var(--mut,#757575);margin-top:14px"><span data-slot="fund.blurb">Kelp and shellfish arrays that clean coastal water and sell premium harvests. This round funds 3 new reef sites and a processing barge.</span> Backed by proposal <span data-slot="fund.proposalCode" style="color:var(--ink,#0a0a0a);font-weight:600">OSM-042</span>, currently at <span data-slot="fund.proposalForPct">68%</span> FOR.</div>
+  <div data-slot="fund.empty" style="display:none;max-width:1140px;margin:0 auto;padding:clamp(28px,5vw,52px) clamp(16px,3vw,44px) 44px">
+    <div style="background:var(--sf,#fff);border:1px dashed var(--dt2,#c6c6c6);border-radius:22px;padding:clamp(32px,5vw,52px);text-align:center">
+      <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(24px,3.4vw,34px);letter-spacing:.02em">NO OPEN FUNDRAISER</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);margin-top:10px;letter-spacing:.08em">No open fundraiser right now — check Governance for live votes.</div>
+      <div data-action="goGov" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:12px 22px;border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-2"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">how_to_vote</span>Go to Governance</div>
+    </div>
+  </div>
+
+  <div data-slot="fund.main" style="max-width:1140px;margin:0 auto;padding:clamp(28px,5vw,52px) clamp(16px,3vw,44px) 44px">
+    <div style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--red,#c47b10)">volunteer_activism</span><span data-slot="fund.eyebrow">MEMBER FUNDRAISER</span></div>
+    <div data-slot="fund.title" style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(36px,6vw,68px);line-height:1.05;margin-top:14px;letter-spacing:.01em">—</div>
+    <div style="max-width:640px;font-size:clamp(14px,1.6vw,16px);line-height:1.7;color:var(--mut,#757575);margin-top:14px"><span data-slot="fund.blurb"></span><span data-slot="fund.proposalLine" style="display:none"> Backed by proposal <span data-slot="fund.proposalCode" style="color:var(--ink,#0a0a0a);font-weight:600">—</span>, currently at <span data-slot="fund.proposalForPct">—</span> FOR.</span></div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:30px">
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:clamp(20px,3vw,28px)">
         <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-          <div data-slot="fund.raised" style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(34px,4.5vw,50px)">$1.6M</div>
-          <div data-slot="fund.ofTarget" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--mut,#757575)">OF $2.4M · 67%</div>
+          <div data-slot="fund.raised" style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(34px,4.5vw,50px)">—</div>
+          <div data-slot="fund.ofTarget" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--mut,#757575)">—</div>
         </div>
-        <div style="position:relative;height:12px;margin-top:14px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 2px,transparent 2.5px);background-size:11px 12px"><div data-slot="fund.meterFill" style="position:absolute;left:0;top:0;bottom:0;width:67%;background-image:radial-gradient(circle,var(--red,#c47b10) 2px,transparent 2.5px);background-size:11px 12px"></div></div>
+        <div style="position:relative;height:12px;margin-top:14px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 2px,transparent 2.5px);background-size:11px 12px"><div data-slot="fund.meterFill" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,var(--red,#c47b10) 2px,transparent 2.5px);background-size:11px 12px"></div></div>
         <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575)">
-          <div><span data-slot="fund.backers" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">1,204</span> BACKERS</div>
-          <div><span data-slot="fund.timeLeft" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">9D 6H</span> LEFT</div>
-          <div><span data-slot="fund.apy" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">11.1%</span> TARGET APY</div>
-          <div><span data-slot="fund.min" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">$100</span> MIN</div>
+          <div><span data-slot="fund.backers" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">0</span> BACKERS</div>
+          <div><span data-slot="fund.timeLeft" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">—</span> LEFT</div>
+          <div><span data-slot="fund.apy" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">—</span> TARGET APY</div>
+          <div><span data-slot="fund.min" style="color:var(--ink,#0a0a0a);font-weight:600;font-size:15px">—</span> MIN</div>
         </div>
         <div style="border-top:1px dotted var(--dt2,#c6c6c6);margin-top:18px;padding-top:16px">
           <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:9px">CONTRIBUTE</div>
@@ -37,54 +45,38 @@
             <span data-chip="1000" role="button" tabindex="0" style="border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:9px 18px;color:var(--mut,#757575);cursor:pointer" class="obh-1">$1,000</span>
             <span data-chip="custom" role="button" tabindex="0" style="border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:9px 18px;color:var(--mut,#757575);cursor:pointer" class="obh-1">CUSTOM</span>
           </div>
-          <div data-action="demoContribute" role="button" tabindex="0" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:15px 0;background:var(--red,#c47b10);color:#fff;border-radius:100px;font-size:15px;font-weight:600;cursor:pointer" class="obh-11"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">volunteer_activism</span><span data-slot="fund.ctaLabel">Back Nova Reef · $500</span></div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);margin-top:10px;text-align:center;letter-spacing:.08em">PAY IN USDC / BTC / ETH / OSM · REFUNDED IF VOTE FAILS</div>
+          <div data-action="demoContribute" role="button" tabindex="0" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:15px 0;background:var(--red,#c47b10);color:#fff;border-radius:100px;font-size:15px;font-weight:600;cursor:pointer" class="obh-11"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1">volunteer_activism</span><span data-slot="fund.ctaLabel">Back this raise · $500</span></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);margin-top:10px;text-align:center;letter-spacing:.08em">PAY IN USDC FROM YOUR VAULT BALANCE</div>
         </div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:16px">
-        <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:22px">
+        <div data-slot="fund.uofPanel" style="display:none;background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:22px">
           <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">pie_chart</span>USE OF FUNDS</div>
           <div data-list="fund.useOfFunds" style="display:flex;flex-direction:column;gap:11px;margin-top:14px">
             <div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span data-slot="fund.uofName" style="font-weight:600">3 new reef sites</span><span data-slot="fund.uofAmount" style="font-family:'IBM Plex Mono',monospace;font-size:12px">$1.4M</span></div>
-              <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="fund.uofMeter" style="position:absolute;left:0;top:0;bottom:0;width:58%;background-image:radial-gradient(circle,#1fb597 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span style="font-weight:600">Processing barge</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">$0.7M</span></div>
-              <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:29%;background-image:radial-gradient(circle,#2775ca 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span style="font-weight:600">Working capital</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">$0.3M</span></div>
-              <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:13%;background-image:radial-gradient(circle,var(--red,#c47b10) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span data-slot="fund.uofName" style="font-weight:600">—</span><span data-slot="fund.uofAmount" style="font-family:'IBM Plex Mono',monospace;font-size:12px">—</span></div>
+              <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="fund.uofMeter" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,#1fb597 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
             </div>
           </div>
         </div>
-        <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:6px 22px 8px">
+        <div data-slot="fund.updPanel" style="display:none;background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:6px 22px 8px">
           <div style="display:flex;align-items:center;gap:7px;padding:16px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">campaign</span>UPDATES</div>
           <div data-list="fund.updates">
           <div style="display:flex;gap:12px;padding:13px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-            <div data-slot="fund.updDate" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);flex:none;width:52px">JUL 10</div>
-            <div style="font-size:13.5px;line-height:1.55"><span data-slot="fund.updTitle" style="font-weight:600">Site permits approved</span><span data-slot="fund.updBody"> for reef sites 2 and 3 — two months ahead of schedule.</span></div>
-          </div>
-          <div style="display:flex;gap:12px;padding:13px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);flex:none;width:52px">JUL 03</div>
-            <div style="font-size:13.5px;line-height:1.55"><span style="font-weight:600">$1.5M crossed.</span> Anchor commitment from the DAO treasury pending OSM-042.</div>
-          </div>
-          <div style="display:flex;gap:12px;padding:13px 0;border-top:1px dotted var(--dt,#d9d9d9)">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);flex:none;width:52px">JUN 24</div>
-            <div style="font-size:13.5px;line-height:1.55"><span style="font-weight:600">Raise opened.</span> Fieldstone diligence report published to all members.</div>
+            <div data-slot="fund.updDate" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);flex:none;width:52px">—</div>
+            <div style="font-size:13.5px;line-height:1.55"><span data-slot="fund.updTitle" style="font-weight:600"></span><span data-slot="fund.updBody"></span></div>
           </div>
           </div>
         </div>
-        <div style="border:1px dotted var(--dt2,#c6c6c6);border-radius:22px;padding:16px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div data-slot="fund.backersCard" style="border:1px dotted var(--dt2,#c6c6c6);border-radius:22px;padding:16px 22px;display:none;align-items:center;gap:12px;flex-wrap:wrap">
           <div data-slot="fund.backerAvatars" style="display:flex">
             <div style="width:30px;height:30px;border-radius:50%;background:var(--ink,#0a0a0a);color:var(--inv,#fff);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:2px solid var(--bg,#f4f4f4)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">person</span></div>
             <div style="width:30px;height:30px;border-radius:50%;background:#1fb597;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:2px solid var(--bg,#f4f4f4);margin-left:-8px"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">person</span></div>
             <div style="width:30px;height:30px;border-radius:50%;background:#2775ca;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:2px solid var(--bg,#f4f4f4);margin-left:-8px"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">person</span></div>
             <div style="width:30px;height:30px;border-radius:50%;background:var(--red,#c47b10);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:2px solid var(--bg,#f4f4f4);margin-left:-8px">+</div>
           </div>
-          <div data-slot="fund.backerLine" style="font-size:13px;color:var(--mut,#757575)">Members are backing this raise</div>
+          <div data-slot="fund.backerLine" style="font-size:13px;color:var(--mut,#757575)">—</div>
         </div>
       </div>
     </div>

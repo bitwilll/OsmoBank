@@ -1,11 +1,12 @@
 /* Fundraiser screen: GET /api/fundraiser + POST /api/fundraiser/contribute.
- * Public screen — anonymous visitors see the design placeholders (the API is
- * auth-gated); the Back CTA routes them to login. All API data lands via
+ * Public screen — anonymous visitors see the neutral markup placeholders (the
+ * API is auth-gated); the Back CTA routes them to login. A 404 (no open raise)
+ * swaps the whole page for an honest empty state. All API data lands via
  * textContent only. */
 
 const S = {
-  amount: 500,              // selected contribution (design default chip)
-  ventureName: 'Nova Reef', // last known, used in the CTA label
+  amount: 500,               // selected contribution (design default chip)
+  ventureName: 'this raise', // last known venture name, used in the CTA label
   min: 100,
   activeChip: '500',
 };
@@ -36,11 +37,22 @@ export async function hydrate(root, ctx) {
   }
   try {
     const { fundraiser } = await ctx.api.get('/api/fundraiser');
+    showEmpty(root, ctx, false);
     apply(root, ctx, fundraiser);
   } catch (e) {
-    // Anonymous visitors get a 401 here — keep the design placeholders quietly.
+    // No open raise — show the honest empty state instead of placeholders.
+    if (e?.status === 404) return showEmpty(root, ctx, true);
+    // Anonymous visitors get a 401 here — keep the neutral placeholders quietly.
     if (ctx.me()) ctx.errToast(e);
   }
+}
+
+// ---- empty state (no open fundraiser) -----------------------------------------
+function showEmpty(root, ctx, on) {
+  const main = ctx.slot(root, 'fund.main');
+  const empty = ctx.slot(root, 'fund.empty');
+  if (main) main.style.display = on ? 'none' : '';
+  if (empty) empty.style.display = on ? '' : 'none';
 }
 
 // ---- one-time wiring --------------------------------------------------------
@@ -138,6 +150,12 @@ function apply(root, ctx, f) {
     if (n) n.textContent = v;
   };
 
+  // Eyebrow: the venture's sector when the API provides one, else a generic,
+  // claim-free label. (No audit/series claims — those never existed in code.)
+  set('fund.eyebrow', f.sector
+    ? `${String(f.sector).toUpperCase()} · MEMBER FUNDRAISER`
+    : 'MEMBER FUNDRAISER');
+
   set('fund.raised', usdM(f.raised));
   set('fund.ofTarget', `OF ${usdM(f.target)} · ${fmt.pct(f.pct, 0)}`);
   const fill = ctx.slot(root, 'fund.meterFill');
@@ -151,8 +169,15 @@ function apply(root, ctx, f) {
   // <pct> FOR", so drop any trailing "Backed by proposal …" clause the stored
   // blurb may carry to avoid a duplicated proposal reference.
   if (f.blurb) set('fund.blurb', String(f.blurb).replace(/\s*Backed by proposal[^.]*\.?\s*$/i, ''));
-  if (f.proposalCode) set('fund.proposalCode', f.proposalCode);
-  if (f.proposalForPct != null) set('fund.proposalForPct', fmt.pct(f.proposalForPct, 0));
+  // "Backed by proposal …" tail — only shown when a real backing proposal exists.
+  const proposalLine = ctx.slot(root, 'fund.proposalLine');
+  if (f.proposalCode) {
+    set('fund.proposalCode', f.proposalCode);
+    set('fund.proposalForPct', f.proposalForPct != null ? fmt.pct(f.proposalForPct, 0) : '—');
+    if (proposalLine) proposalLine.style.display = '';
+  } else if (proposalLine) {
+    proposalLine.style.display = 'none';
+  }
   // Backer social proof — real count only. We have no backer identities from the
   // API (fundraiserView returns just a count), so we never fabricate @handles or
   // initials. The avatar cluster is a non-identifying decoration; hide it when
@@ -166,8 +191,15 @@ function apply(root, ctx, f) {
   }
   const avatars = ctx.slot(root, 'fund.backerAvatars');
   if (avatars) avatars.style.display = backerCount > 0 ? 'flex' : 'none';
+  const backersCard = ctx.slot(root, 'fund.backersCard');
+  if (backersCard) backersCard.style.display = 'flex';
 
-  // USE OF FUNDS — dotted meters sized by share of target
+  // USE OF FUNDS — hidden entirely until real budget lines exist (the API
+  // currently always sends []); dotted meters sized by share of target.
+  const uofPanel = ctx.slot(root, 'fund.uofPanel');
+  if (uofPanel) {
+    uofPanel.style.display = Array.isArray(f.useOfFunds) && f.useOfFunds.length ? '' : 'none';
+  }
   const uof = ctx.list(root, 'fund.useOfFunds');
   if (uof && Array.isArray(f.useOfFunds)) {
     uof.clear();
@@ -189,7 +221,12 @@ function apply(root, ctx, f) {
     });
   }
 
-  // UPDATES — mono date, bold lead + body
+  // UPDATES — hidden entirely until real updates exist (the API currently
+  // always sends []); mono date, bold lead + body.
+  const updPanel = ctx.slot(root, 'fund.updPanel');
+  if (updPanel) {
+    updPanel.style.display = Array.isArray(f.updates) && f.updates.length ? '' : 'none';
+  }
   const upd = ctx.list(root, 'fund.updates');
   if (upd && Array.isArray(f.updates)) {
     upd.clear();

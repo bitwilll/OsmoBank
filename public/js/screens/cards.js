@@ -2,7 +2,8 @@
  * Primary OSMOCARD panel from GET /api/cards (first card; auto-issues one if the
  * list is empty). Freeze toggles PATCH {frozen}; Details reveals the PAN behind a
  * passphrase (POST :id/reveal); Limits PATCHes {dailyLimit}; ADD DIGITAL CARD POSTs
- * a new card. JULY SPEND + category breakdown come from the same GET. Gift store
+ * a new card. Month spend + the {transfers, gifts} breakdown come from the same
+ * GET — both are real ledger aggregates, never invented categories. Gift store
  * buttons POST /api/cards/gift and refresh the balance. All server data via textContent.
  * Design: only the primary panel is shown, so extra issued cards just refill the
  * primary and toast (no extra panels templated). */
@@ -107,7 +108,7 @@ function fillPanel(root) {
   const c = primaryCard;
   if (!c) return;
 
-  if (numEl) numEl.textContent = `•••• •••• •••• ${c.last4 || '0000'}`;
+  if (numEl) numEl.textContent = `•••• •••• •••• ${c.last4 || '••••'}`;
   if (expEl) expEl.textContent = `EXP ${c.exp || '--/--'} · ${String(c.kind || 'virtual').toUpperCase()}`;
   if (panel) panel.style.opacity = c.frozen ? '.5' : '1';
   if (frozenChip) frozenChip.style.display = c.frozen ? 'inline-block' : 'none';
@@ -115,26 +116,27 @@ function fillPanel(root) {
 }
 
 function fillSpend(root, ctx, data) {
-  const month = new Date().toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
-  const spend = Number(data.spend || 0);
-  const title = ctx.slot(root, 'cards.spendTitle');
-  if (title) title.textContent = `${month} SPEND · ${ctx.fmt.usd2(spend)}`;
-
   const bd = data.spendBreakdown || {};
+  const transfers = Number(bd.transfers || 0);
+  const gifts = Number(bd.gifts || 0);
+  const total = transfers + gifts;
+
+  const month = new Date().toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+  const title = ctx.slot(root, 'cards.spendTitle');
+  if (title) title.textContent = `${month} SPEND · ${ctx.fmt.usd2(total)}`;
+
   const rows = [
-    ['cards.catGroceries', 'cards.barGroceries', bd.groceries],
-    ['cards.catTransit', 'cards.barTransit', bd.transit],
-    ['cards.catDining', 'cards.barDining', bd.dining],
+    ['cards.catTransfers', 'cards.barTransfers', transfers],
+    ['cards.catGifts', 'cards.barGifts', gifts],
   ];
-  for (const [cellName, barName, val] of rows) {
-    const amount = Number(val || 0);
+  for (const [cellName, barName, amount] of rows) {
     const cell = ctx.slot(root, cellName);
     if (cell) cell.textContent = ctx.fmt.usd(amount);
-    // Bar fill = this category's share of month spend. A $0 account has nothing
+    // Bar fill = this row's share of month spend. A $0 account has nothing
     // to spend, so the bar stays empty rather than showing a fabricated width.
     const bar = ctx.slot(root, barName);
     if (bar) {
-      const share = spend > 0 ? Math.max(0, Math.min(100, (amount / spend) * 100)) : 0;
+      const share = total > 0 ? Math.max(0, Math.min(100, (amount / total) * 100)) : 0;
       bar.style.width = `${share}%`;
     }
   }
@@ -344,6 +346,8 @@ async function buyGift(button, ctx) {
   try {
     const r = await ctx.api.post('/api/cards/gift', { brand, amount });
     await ctx.refreshMe(); // balance changed
-    ctx.toast(`GIFT CARD PURCHASED · ${brand} ${ctx.fmt.usd(amount)} · CODE ${r.gift?.code || ''}`);
+    const backOsm = Number(r.gift?.backOsm || 0);
+    const backTxt = backOsm > 0 ? ` · +${ctx.fmt.num(backOsm)} OSM BACK` : '';
+    ctx.toast(`GIFT CARD PURCHASED · ${brand} ${ctx.fmt.usd(amount)} · CODE ${r.gift?.code || ''}${backTxt}`);
   } catch (e) { ctx.errToast(e); }
 }

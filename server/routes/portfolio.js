@@ -4,7 +4,8 @@ import { Pdf } from '../lib/pdf.js';
 
 const usd = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const signedUsd = (n) => (Number(n) >= 0 ? '+' : '') + usd(n);
-const memberNo = (id) => 48195 + Number(id);
+// The member number IS the account id — no vanity offset inflating the roster.
+const memberNo = (id) => Number(id);
 
 // ---- date helpers (UTC, to match sqlite datetime('now')) -------------------
 
@@ -40,7 +41,9 @@ async function computeReport(uid) {
     SELECT COALESCE(SUM(CASE WHEN kind NOT IN ('invest','exit') THEN delta ELSE 0 END), 0) AS b
     FROM ledger WHERE user_id = ? AND currency = 'USDC' AND created_at < ?`).get(uid, yearStart)).b;
   const netWorthYtd = round2(ytd.netWorth);
-  const netWorthYtdPct = baseline > 0 ? round2((netWorthYtd / baseline) * 100) : (netWorthYtd > 0 ? 100 : 0);
+  // Without a prior-year baseline there is no honest percentage — return null
+  // and let clients render '—' instead of a degenerate "+100%".
+  const netWorthYtdPct = baseline > 0 ? round2((netWorthYtd / baseline) * 100) : null;
   const dividendLedger = (await db.prepare(`
     SELECT pi.amount, p.id AS payoutId, p.created_at AS date, v.name AS venture
     FROM payout_items pi JOIN payouts p ON p.id = pi.payout_id JOIN ventures v ON v.id = p.venture_id
@@ -53,7 +56,7 @@ async function computeReport(uid) {
   const statements = (await db.prepare(`
     SELECT strftime('%Y-%m', created_at) AS month, COUNT(*) AS txCount
     FROM ledger WHERE user_id = ? GROUP BY month ORDER BY month DESC`).all(uid))
-    .map((r) => ({ month: r.month, txCount: Number(r.txCount), sizeMb: round2(0.03 + Number(r.txCount) * 0.012) }));
+    .map((r) => ({ month: r.month, txCount: Number(r.txCount) })); // no invented file sizes
   return { netWorthYtd, netWorthYtdPct, dividendsYtd: round2(ytd.dividends), feesYtd: round2(ytd.fees),
     receiptsFiled: Number(ytd.receipts), dividendLedger, statements };
 }
@@ -204,7 +207,9 @@ export default function mount(app) {
         pdf.text(stamp(req.user), { gray: 0.4 });
         pdf.text(`Generated ${new Date().toISOString().slice(0, 10)} · ${req.user.role.toUpperCase()}`, { size: 8, gray: 0.5 });
         pdf.heading('YEAR TO DATE');
-        pdf.row('Net worth', `${signedUsd(rep.netWorthYtd)} (${rep.netWorthYtdPct >= 0 ? '+' : ''}${rep.netWorthYtdPct}%)`);
+        pdf.row('Net worth', rep.netWorthYtdPct == null
+          ? signedUsd(rep.netWorthYtd)
+          : `${signedUsd(rep.netWorthYtd)} (${rep.netWorthYtdPct >= 0 ? '+' : ''}${rep.netWorthYtdPct}%)`);
         pdf.row('Dividends', usd(rep.dividendsYtd));
         pdf.row('Fees paid', usd(rep.feesYtd));
         pdf.row('Receipts filed', String(rep.receiptsFiled));
@@ -216,8 +221,8 @@ export default function mount(app) {
             rep.dividendLedger.map((d) => [d.venture, d.quarter, d.date.slice(0, 10), d.txref, signedUsd(d.amount)]));
         } else pdf.text('No dividends recorded yet.', { gray: 0.5 });
         pdf.heading('MONTHLY STATEMENTS');
-        pdf.table([{ label: 'MONTH', width: 0.5 }, { label: 'TX', width: 0.25, align: 'right' }, { label: 'SIZE (MB)', width: 0.25, align: 'right' }],
-          rep.statements.map((s) => [s.month, String(s.txCount), s.sizeMb.toFixed(2)]));
+        pdf.table([{ label: 'MONTH', width: 0.6 }, { label: 'TX', width: 0.4, align: 'right' }],
+          rep.statements.map((s) => [s.month, String(s.txCount)]));
         return sendPdf(res, 'osmobank-statement', pdf.build());
       }
 

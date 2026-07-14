@@ -1,51 +1,26 @@
 import { db, tx, balance, audit } from '../db.js';
 import { ApiError, num, round2, requireAuth } from '../lib/util.js';
 
-// Synthetic launch-day vote baseline, keyed by proposal code. Added as constants
-// inside the aggregates (never materialized as vote rows) so the seeded OSM-042
-// proposal starts near the design split of 68% FOR / 32% AGAINST with a
-// plausible voter headcount. `power` participates in quorum; `voters` keeps the
-// displayed headcount coherent with the tally instead of reporting 0.
-const VOTE_BASELINE = {
-  'OSM-042': { for: 10123, against: 4759, voters: 14882 },
-};
-
-// Static presentation data for the single open fundraiser (contract allows static).
-const USE_OF_FUNDS = [
-  { label: '3 new reef sites', amount: 1400000 },
-  { label: 'Processing barge', amount: 700000 },
-  { label: 'Working capital', amount: 300000 },
-];
-const UPDATES = [
-  { date: '2026-07-08', title: 'Fieldstone diligence audit published', body: 'Independent audit of the Series B diligence report is complete — no exceptions noted.' },
-  { date: '2026-07-03', title: 'Processing barge contract signed', body: 'Shipyard slot secured; keel laying scheduled within 30 days of close.' },
-  { date: '2026-06-28', title: 'Raise opened to all members', body: 'Backed by proposal OSM-042. Dividends begin Q4 2026 at 11.1% target APY.' },
-];
-
 async function osmSupply() {
   const row = await db.prepare("SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'OSM'").get();
   return row?.s ?? 0;
 }
 
+// Tallies come from real vote rows only — no synthetic baseline. A young DAO
+// honestly shows small numbers.
 async function voteTotals(proposal) {
-  const agg = await db.prepare(
+  return await db.prepare(
     `SELECT COALESCE(SUM(CASE WHEN support = 1 THEN power END), 0) AS forPower,
             COALESCE(SUM(CASE WHEN support = 0 THEN power END), 0) AS againstPower,
             COUNT(*) AS voters
        FROM votes WHERE proposal_id = ?`).get(proposal.id);
-  const base = VOTE_BASELINE[proposal.code] || { for: 0, against: 0, voters: 0 };
-  return {
-    forPower: agg.forPower + base.for,
-    againstPower: agg.againstPower + base.against,
-    voters: agg.voters + base.voters,
-  };
 }
 
 async function proposalView(proposal, userId) {
   const { forPower, againstPower, voters } = await voteTotals(proposal);
   const total = forPower + againstPower;
-  // Effective supply floors at the participating power so the synthetic baseline
-  // (which is not part of the real OSM ledger) can never push the ratio above 100%.
+  // Effective supply floors at the participating power so the ratio can never
+  // exceed 100% even if ledger rows lag behind recorded votes.
   const supply = Math.max(await osmSupply(), total);
   const mine = await db.prepare('SELECT support FROM votes WHERE proposal_id = ? AND user_id = ?')
     .get(proposal.id, userId);
@@ -109,8 +84,10 @@ async function fundraiserView(f) {
     minAmount: f.min_amount,
     daysLeft,
     hoursLeft,
-    useOfFunds: USE_OF_FUNDS,
-    updates: UPDATES,
+    // No fabricated budget lines or progress announcements: these stay empty
+    // until real per-fundraiser records exist. The client hides the sections.
+    useOfFunds: [],
+    updates: [],
     ventureName: venture?.name ?? null,
     proposalCode: proposal?.code ?? null,
     proposalForPct,
@@ -118,6 +95,32 @@ async function fundraiserView(f) {
 }
 
 export default function mount(app) {
+  // Public, real aggregates for the home page — every number is computed from
+  // actual rows so the marketing surface can never overstate the DAO.
+  app.get('/api/stats', async (_req, res, next) => {
+    try {
+      const members = (await db.prepare("SELECT COUNT(*) AS n FROM users WHERE status != 'frozen'").get())?.n ?? 0;
+      const usdcHeld = (await db.prepare("SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'USDC'").get())?.s ?? 0;
+      const dividendsPaid = (await db.prepare(
+        "SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE kind = 'dividend' AND delta > 0").get())?.s ?? 0;
+      const liveVotes = (await db.prepare("SELECT COUNT(*) AS n FROM proposals WHERE status = 'live'").get())?.n ?? 0;
+      const proposalsPassed = (await db.prepare("SELECT COUNT(*) AS n FROM proposals WHERE status = 'passed'").get())?.n ?? 0;
+      const live = await db.prepare("SELECT code FROM proposals WHERE status = 'live' ORDER BY id DESC LIMIT 1").get();
+      const topApy = (await db.prepare("SELECT MAX(apy) AS a FROM ventures WHERE status = 'active'").get())?.a ?? null;
+      const activeVentures = (await db.prepare("SELECT COUNT(*) AS n FROM ventures WHERE status = 'active'").get())?.n ?? 0;
+      res.json({
+        members,
+        treasuryUsd: round2(usdcHeld),
+        dividendsPaid: round2(dividendsPaid),
+        liveVotes,
+        liveProposalCode: live?.code ?? null,
+        proposalsPassed,
+        topApy,
+        activeVentures,
+      });
+    } catch (e) { next(e); }
+  });
+
   app.get('/api/proposals', requireAuth, async (req, res, next) => {
     try {
       const rows = await db.prepare(
