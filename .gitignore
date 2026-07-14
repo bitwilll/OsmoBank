@@ -8,3 +8,6 @@ data/*.db-wal
 data/*.db-shm
 .DS_Store
 .env*
+
+# Test run logs (volatile, machine-specific paths)
+logs/

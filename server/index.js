@@ -107,9 +107,14 @@ app.use(express.static(join(ROOT, 'public'), { index: 'index.html', extensions: 
 // Error handler — no stack traces or SQL to clients.
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
-  const status = err instanceof ApiError ? err.status : (err.type === 'entity.parse.failed' ? 400 : 500);
+  // Honour client-error statuses carried by our ApiError and by http-errors from
+  // body-parser (entity.parse.failed → 400, entity.too.large → 413, unsupported
+  // charset → 415, …). Anything without a 4xx status is a real server fault → 500.
+  const carried = Number(err?.status ?? err?.statusCode);
+  const status = err instanceof ApiError ? err.status
+    : (Number.isInteger(carried) && carried >= 400 && carried < 500 ? carried : 500);
   if (status >= 500) console.error(err);
-  res.status(status).json({ error: err instanceof ApiError || status < 500 ? err.message : 'Internal error' });
+  res.status(status).json({ error: status < 500 ? err.message : 'Internal error' });
 });
 
 // On Vercel the app is imported by api/index.js and served as a function — no
