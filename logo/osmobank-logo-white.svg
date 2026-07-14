@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 30" width="256" height="240" role="img" aria-label="OsmoBank">
+  <title>OsmoBank</title>
+  <!-- White version for dark backgrounds. Same transparent knockout at the overlap. -->
+  <clipPath id="ob-star"><path d="M15 6.2 L17.2 12.8 L23.8 15 L17.2 17.2 L15 23.8 L12.8 17.2 L6.2 15 L12.8 12.8 Z"/></clipPath>
+  <mask id="ob-knock">
+    <rect width="32" height="30" fill="#fff"/>
+    <g clip-path="url(#ob-star)"><ellipse cx="15" cy="15" rx="13.5" ry="4.6" transform="rotate(-22 15 15)" fill="none" stroke="#000" stroke-width="2.4"/></g>
+  </mask>
+  <g mask="url(#ob-knock)">
+    <path d="M15 6.2 L17.2 12.8 L23.8 15 L17.2 17.2 L15 23.8 L12.8 17.2 L6.2 15 L12.8 12.8 Z" fill="#ffffff"/>
+    <ellipse cx="15" cy="15" rx="13.5" ry="4.6" transform="rotate(-22 15 15)" fill="none" stroke="#ffffff" stroke-width="2.4"/>
+  </g>
+</svg>

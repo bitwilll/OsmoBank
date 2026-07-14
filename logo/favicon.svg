@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -1 32 32" width="32" height="32" role="img" aria-label="OsmoBank">
+  <title>OsmoBank</title>
+  <!-- Square favicon: ink mark with an opaque white knockout at the overlap
+       (matches the site favicon; reads well on light browser chrome). -->
+  <clipPath id="fs"><path d="M15 6.2 L17.2 12.8 L23.8 15 L17.2 17.2 L15 23.8 L12.8 17.2 L6.2 15 L12.8 12.8 Z"/></clipPath>
+  <path d="M15 6.2 L17.2 12.8 L23.8 15 L17.2 17.2 L15 23.8 L12.8 17.2 L6.2 15 L12.8 12.8 Z" fill="#0a0a0a"/>
+  <ellipse cx="15" cy="15" rx="13.5" ry="4.6" transform="rotate(-22 15 15)" fill="none" stroke="#0a0a0a" stroke-width="2.4"/>
+  <g clip-path="url(#fs)"><ellipse cx="15" cy="15" rx="13.5" ry="4.6" transform="rotate(-22 15 15)" fill="none" stroke="#ffffff" stroke-width="2.4"/></g>
+</svg>
