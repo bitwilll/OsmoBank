@@ -151,73 +151,25 @@
       <div style="font-family:'Doto',monospace;font-weight:900;font-size:19px">ROADMAPS</div>
       <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;color:var(--mut,#757575)">PROJECT TIMELINES · MILESTONE PROGRESS</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;padding-bottom:36px">
-      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:22px">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-family:'Material Symbols Sharp';font-size:20px;line-height:1;color:#f5a623">solar_power</span>
-          <div style="font-size:16.5px;font-weight:700">Helios Grid</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">P/L +$1,120</div>
-          <div style="margin-left:auto;font-family:'Doto',monospace;font-weight:900;font-size:22px">72%</div>
-        </div>
-        <div style="position:relative;height:8px;margin-top:12px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:72%;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-        <div style="border-left:1px dotted var(--dt2,#c6c6c6);margin:20px 0 0 6px;padding-left:22px;display:flex;flex-direction:column;gap:18px">
-          <div style="position:relative">
-            <span style="position:absolute;left:-28.5px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--grn,#17a562)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600">Site surveys · 12 regions</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562)">Q1 '25 · DONE</span></div>
+    <div style="padding-bottom:36px">
+      <div data-list="edge.roadmaps" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+        <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:22px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span data-slot="edge.rmIcon" style="font-family:'Material Symbols Sharp';font-size:20px;line-height:1;color:#f5a623">workspaces</span>
+            <div data-slot="edge.rmName" style="font-size:16.5px;font-weight:700">Venture</div>
+            <div data-slot="edge.rmPl" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">P/L —</div>
+            <div data-slot="edge.rmPct" style="margin-left:auto;font-family:'Doto',monospace;font-weight:900;font-size:22px">—</div>
           </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-28.5px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--grn,#17a562)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600">First 80 grids live</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562)">Q4 '25 · DONE</span></div>
-            <div style="font-size:12.5px;color:var(--mut,#757575);margin-top:3px">Ahead of plan · first PPA revenue flowing</div>
-          </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-28.5px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--grn,#17a562)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600">Grid 140 + battery storage</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562)">Q2 '26 · DONE</span></div>
-          </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-28.5px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--red,#c47b10);animation:ob-pulse 2.4s ease-out infinite"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600">Scale to 240 grids</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--red,#c47b10)">Q4 '26 · IN PROGRESS</span></div>
-            <div style="font-size:12.5px;color:var(--mut,#757575);margin-top:3px">168 of 240 installed · dividend uplift expected Q1 '27</div>
-          </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-27.5px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--sf,#fff);border:2px solid var(--dt2,#c6c6c6)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600;color:var(--mut,#757575)">Exit window · strategic sale</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">2028 · UPCOMING</span></div>
+          <div style="position:relative;height:8px;margin-top:12px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="edge.rmBar" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
+          <div data-list="edge.rmMilestones" style="border-left:1px dotted var(--dt2,#c6c6c6);margin:20px 0 0 6px;padding-left:22px;display:flex;flex-direction:column;gap:18px">
+            <div style="position:relative">
+              <span data-slot="edge.rmDot" style="position:absolute;left:-28.5px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--grn,#17a562)"></span>
+              <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span data-slot="edge.rmMsName" style="font-size:14.5px;font-weight:600">Milestone</span><span data-slot="edge.rmMsWhen" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562)">—</span></div>
+            </div>
           </div>
         </div>
       </div>
-
-      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:22px">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-family:'Material Symbols Sharp';font-size:20px;line-height:1;color:#1fb597">waves</span>
-          <div style="font-size:16.5px;font-weight:700">Nova Reef</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:3px 10px">P/L +$494</div>
-          <div style="margin-left:auto;font-family:'Doto',monospace;font-weight:900;font-size:22px">34%</div>
-        </div>
-        <div style="position:relative;height:8px;margin-top:12px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:34%;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-        <div style="border-left:1px dotted var(--dt2,#c6c6c6);margin:20px 0 0 6px;padding-left:22px;display:flex;flex-direction:column;gap:18px">
-          <div style="position:relative">
-            <span style="position:absolute;left:-28.5px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--grn,#17a562)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600">Coastal permits · 3 sites</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--grn,#17a562)">Q2 '26 · DONE</span></div>
-          </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-28.5px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--red,#c47b10);animation:ob-pulse 2.4s ease-out infinite"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600">Series B raise · $2.4M</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--red,#c47b10)">NOW · 67% FILLED</span></div>
-            <div style="font-size:12.5px;color:var(--mut,#757575);margin-top:3px">Treasury anchor pending vote OSM-042 · ends 2d 14h</div>
-          </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-27.5px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--sf,#fff);border:2px solid var(--dt2,#c6c6c6)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600;color:var(--mut,#757575)">Array construction</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">Q1 '27 · UPCOMING</span></div>
-          </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-27.5px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--sf,#fff);border:2px solid var(--dt2,#c6c6c6)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600;color:var(--mut,#757575)">First kelp harvest</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">Q3 '27 · UPCOMING</span></div>
-          </div>
-          <div style="position:relative">
-            <span style="position:absolute;left:-27.5px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--sf,#fff);border:2px solid var(--dt2,#c6c6c6)"></span>
-            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:600;color:var(--mut,#757575)">First dividends to backers</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">Q4 '27 · UPCOMING</span></div>
-          </div>
-        </div>
-      </div>
+      <div data-slot="edge.roadmapsEmpty" style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:22px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--fnt,#a3a3a3);letter-spacing:.06em">No roadmaps yet — venture milestone timelines appear here once you hold a position with a published roadmap.</div>
     </div>
   </div>
 </div>

@@ -1,38 +1,100 @@
-import { DatabaseSync } from 'node:sqlite';
+/* Data layer — libSQL / Turso (async).
+ *
+ * Runs on serverless (Vercel) against a hosted Turso database, and locally /
+ * in tests against a libSQL file or in-memory DB. The public API mirrors the
+ * old node:sqlite shape — `db.prepare(sql).get/all/run(...args)` — but every
+ * terminal call is async, so call sites simply `await`. Transactions use an
+ * AsyncLocalStorage so statements inside `tx(fn)` transparently run on the
+ * transaction connection without threading it through every call.
+ *
+ * Connection resolution (first match wins):
+ *   TURSO_DATABASE_URL (+ TURSO_AUTH_TOKEN)   → hosted Turso
+ *   OSMO_DB                                    → path or libsql/file: URL
+ *   else                                       → local data/osmobank.db file
+ */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomBytes, scryptSync } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DB_PATH = process.env.OSMO_DB || join(ROOT, 'data', 'osmobank.db');
-mkdirSync(dirname(DB_PATH), { recursive: true });
 
-export const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL');
-db.exec('PRAGMA foreign_keys = ON');
+function resolveConfig() {
+  const url = process.env.TURSO_DATABASE_URL;
+  if (url) return { url, authToken: process.env.TURSO_AUTH_TOKEN };
+  // Local / test: a path or an explicit libsql/file/:memory: URL.
+  let target = process.env.OSMO_DB || join(ROOT, 'data', 'osmobank.db');
+  if (/^(libsql:|file:|http:|https:|:memory:)/.test(target)) {
+    if (target.startsWith('file:')) mkdirSync(dirname(target.slice(5)) || '.', { recursive: true });
+    return { url: target };
+  }
+  if (!isAbsolute(target)) target = join(ROOT, target);
+  mkdirSync(dirname(target), { recursive: true });
+  return { url: `file:${target}` };
+}
 
-/** Run fn inside a transaction; roll back on throw. */
-export function tx(fn) {
-  db.exec('BEGIN IMMEDIATE');
+const config = resolveConfig();
+// Remote Turso (libsql://, https://) uses the fetch-based web client — no native
+// binding to bundle on serverless. Local file:/:memory: uses the node client.
+const isRemote = /^(libsql:|https?:|wss?:)/.test(config.url);
+const { createClient } = isRemote
+  ? await import('@libsql/client/web')
+  : await import('@libsql/client/node');
+export const client = createClient(config);
+
+// ---- async statement shim --------------------------------------------------
+const als = new AsyncLocalStorage();
+
+// libSQL rejects `undefined`; coerce params to the accepted set.
+const normArgs = (args) => args.map((v) => {
+  if (v === undefined) return null;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return v;
+});
+
+async function run1(sql, args) {
+  const conn = als.getStore() || client;
+  return args && args.length ? conn.execute({ sql, args: normArgs(args) }) : conn.execute(sql);
+}
+
+export const db = {
+  prepare(sql) {
+    return {
+      async get(...args) { return (await run1(sql, args)).rows[0]; },
+      async all(...args) { return (await run1(sql, args)).rows; },
+      async run(...args) {
+        const r = await run1(sql, args);
+        return { lastInsertRowid: r.lastInsertRowid, changes: Number(r.rowsAffected || 0) };
+      },
+    };
+  },
+  // Execute one or more statements (schema, migrations). No params.
+  async exec(sql) { await client.executeMultiple(sql); },
+};
+
+/** Run fn inside a transaction; roll back on throw. Nested calls reuse the outer txn. */
+export async function tx(fn) {
+  if (als.getStore()) return fn(); // already inside a transaction
+  const t = await client.transaction('write');
   try {
-    const out = fn();
-    db.exec('COMMIT');
+    const out = await als.run(t, () => fn());
+    await t.commit();
     return out;
   } catch (e) {
-    db.exec('ROLLBACK');
+    try { await t.rollback(); } catch { /* connection may be gone */ }
     throw e;
   }
 }
 
-export function balance(userId, currency = 'USDC') {
-  const row = db.prepare('SELECT COALESCE(SUM(delta),0) AS b FROM ledger WHERE user_id = ? AND currency = ?')
+export async function balance(userId, currency = 'USDC') {
+  const row = await db.prepare('SELECT COALESCE(SUM(delta),0) AS b FROM ledger WHERE user_id = ? AND currency = ?')
     .get(userId, currency);
-  return Math.round((row?.b ?? 0) * 100) / 100;
+  return Math.round((Number(row?.b) || 0) * 100) / 100;
 }
 
-export function audit(actorId, action, subject = null, detail = null) {
-  db.prepare('INSERT INTO audit_log (actor_id, action, subject, detail) VALUES (?,?,?,?)')
+export async function audit(actorId, action, subject = null, detail = null) {
+  await db.prepare('INSERT INTO audit_log (actor_id, action, subject, detail) VALUES (?,?,?,?)')
     .run(actorId, action, subject, detail);
 }
 
@@ -42,7 +104,7 @@ export function hashPass(passphrase) {
   return `scrypt:${salt}:${hash}`;
 }
 
-db.exec(`
+const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY, handle TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL, pass TEXT NOT NULL,
@@ -51,7 +113,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL);
+  created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL,
+  last_seen TEXT, user_agent TEXT, ip TEXT);
 CREATE TABLE IF NOT EXISTS wallets (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
   chain TEXT NOT NULL, address TEXT NOT NULL, label TEXT,
@@ -120,21 +183,21 @@ CREATE TABLE IF NOT EXISTS audit_log (
   subject TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS user_2fa (
   user_id INTEGER PRIMARY KEY REFERENCES users(id),
-  secret TEXT NOT NULL,                              -- base32 TOTP secret (pending until enabled)
+  secret TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS passkeys (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
-  cred_id TEXT UNIQUE NOT NULL,                      -- base64url credential id
-  public_key TEXT NOT NULL,                          -- base64url COSE public key
+  cred_id TEXT UNIQUE NOT NULL,
+  public_key TEXT NOT NULL,
   counter INTEGER NOT NULL DEFAULT 0,
   transports TEXT, label TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   last_used_at TEXT);
 CREATE TABLE IF NOT EXISTS webauthn_challenges (
-  id TEXT PRIMARY KEY,                               -- session/flow token
-  user_id INTEGER,                                   -- NULL for a login (pre-auth) flow
-  challenge TEXT NOT NULL, purpose TEXT NOT NULL,    -- 'register' | 'login'
+  id TEXT PRIMARY KEY,
+  user_id INTEGER,
+  challenge TEXT NOT NULL, purpose TEXT NOT NULL,
   expires_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS cards (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
@@ -149,29 +212,54 @@ CREATE TABLE IF NOT EXISTS gift_cards (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
   brand TEXT NOT NULL, amount REAL NOT NULL, code TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')));
-`);
+CREATE TABLE IF NOT EXISTS password_resets (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+  token_hash TEXT NOT NULL, expires_at TEXT NOT NULL,
+  used_at TEXT, ip TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE INDEX IF NOT EXISTS idx_reset_hash ON password_resets(token_hash);
+CREATE INDEX IF NOT EXISTS idx_reset_user ON password_resets(user_id);
+CREATE TABLE IF NOT EXISTS card_provisions (
+  id INTEGER PRIMARY KEY,
+  card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  platform TEXT NOT NULL CHECK (platform IN ('apple','google','samsung')),
+  token_ref TEXT NOT NULL, device TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(card_id, platform));
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  email TEXT, handle TEXT,
+  category TEXT NOT NULL, message TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'user' CHECK (source IN ('user','system')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE INDEX IF NOT EXISTS idx_support_status ON support_tickets(status, id);
+`;
 
-// ---- one-time seed -------------------------------------------------------
-const empty = !db.prepare('SELECT 1 FROM users LIMIT 1').get();
-if (empty) {
+async function seed() {
   const adminPass = process.env.OSMO_ADMIN_PASS || randomBytes(9).toString('base64url');
   const managerPass = process.env.OSMO_MANAGER_PASS || randomBytes(9).toString('base64url');
 
-  tx(() => {
-    const addUser = db.prepare(
-      'INSERT INTO users (handle, name, email, pass, role, status) VALUES (?,?,?,?,?,?)');
-    const seedLedger = db.prepare(
-      "INSERT INTO ledger (user_id, currency, delta, kind, memo) VALUES (?,?,?,'seed','founding balance')");
+  await tx(async () => {
+    const addUser = (h, n, e, p, role, status) => db.prepare(
+      'INSERT INTO users (handle, name, email, pass, role, status) VALUES (?,?,?,?,?,?)')
+      .run(h, n, e, p, role, status);
+    const seedLedger = (uid, cur, delta, memo = 'founding balance') => db.prepare(
+      "INSERT INTO ledger (user_id, currency, delta, kind, memo) VALUES (?,?,?,'seed',?)")
+      .run(uid, cur, delta, memo);
 
-    const adminId = Number(addUser.run('admin', 'Osmo Operator', 'admin@osmo.money', hashPass(adminPass), 'admin', 'active').lastInsertRowid);
-    const marisolId = Number(addUser.run('marisol', 'Marisol Vega', 'marisol@osmo.money', hashPass(managerPass), 'manager', 'active').lastInsertRowid);
-    const demo = [
+    const adminId = Number((await addUser('admin', 'Osmo Operator', 'admin@osmo.money', hashPass(adminPass), 'admin', 'active')).lastInsertRowid);
+    const marisolId = Number((await addUser('marisol', 'Marisol Vega', 'marisol@osmo.money', hashPass(managerPass), 'manager', 'active')).lastInsertRowid);
+    const demo = [];
+    for (const [h, n, e, s] of [
       ['rosa', 'Rosa Delgado', 'rosa@osmo.money', 'active'],
       ['tunde', 'Tunde Adeyemi', 'tunde@osmo.money', 'review'],
       ['lena', 'Lena Fischer', 'lena@osmo.money', 'active'],
-    ].map(([h, n, e, s]) => Number(addUser.run(h, n, e, hashPass(randomBytes(12).toString('hex')), 'member', s).lastInsertRowid));
+    ]) demo.push(Number((await addUser(h, n, e, hashPass(randomBytes(12).toString('hex')), 'member', s)).lastInsertRowid));
 
-    // luhn-complete a 15-digit body → valid 16-digit PAN (matches routes/cards.js)
     const luhn = (body) => {
       let sum = 0, alt = true;
       for (let i = body.length - 1; i >= 0; i--) {
@@ -181,64 +269,76 @@ if (empty) {
       }
       return body + String((10 - (sum % 10)) % 10);
     };
-    const addCard = db.prepare(
+    const addCard = (uid, pan, cvv) => db.prepare(
       `INSERT INTO cards (user_id, label, brand, pan, last4, exp_month, exp_year, cvv, kind, daily_limit)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`);
+       VALUES (?,?,?,?,?,?,?,?,?,?)`).run(uid, 'OsmoCard', 'OSMO', pan, pan.slice(-4), 9, 2028, cvv, 'virtual', 2000);
     for (const id of [adminId, marisolId, ...demo]) {
-      seedLedger.run(id, 'USDC', 12450, );
-      seedLedger.run(id, 'OSM', id === adminId ? 84300 : 10);
+      await seedLedger(id, 'USDC', 12450);
+      await seedLedger(id, 'OSM', id === adminId ? 84300 : 10);
       const pan = luhn('473501' + String(1000000000 + id * 7919).slice(-9));
-      addCard.run(id, 'OsmoCard', 'OSMO', pan, pan.slice(-4), 9, 2028, String((id * 137) % 1000).padStart(3, '0'), 'virtual', 2000);
+      await addCard(id, pan, String((id * 137) % 1000).padStart(3, '0'));
     }
 
-    const addVenture = db.prepare(
-      'INSERT INTO ventures (name, sector, blurb, apy, min_amount, target_amount, status, manager_id, badge, payout_freq) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    const addVenture = (...a) => db.prepare(
+      'INSERT INTO ventures (name, sector, blurb, apy, min_amount, target_amount, status, manager_id, badge, payout_freq) VALUES (?,?,?,?,?,?,?,?,?,?)').run(...a);
     const v = {};
-    v.helios = Number(addVenture.run('Helios Grid', 'ENERGY', 'Solar microgrids for 240 off-grid villages across East Africa. Revenue from power purchase agreements.', 12.4, 100, 2000000, 'active', marisolId, null, 'quarterly').lastInsertRowid);
-    v.ferrymill = Number(addVenture.run('Ferrymill Robotics', 'ROBOTICS', 'Warehouse autonomy retrofits for mid-size EU logistics operators. Leasing model, 3-year contracts.', 9.2, 100, 1500000, 'active', marisolId, null, 'quarterly').lastInsertRowid);
-    v.atlas = Number(addVenture.run('Atlas Dry Ports', 'LOGISTICS', 'Inland freight hubs decongesting two LATAM port corridors. Storage + customs fees, inflation-linked.', 7.8, 250, 1200000, 'active', marisolId, null, 'quarterly').lastInsertRowid);
-    v.nova = Number(addVenture.run('Nova Reef', 'OCEAN', 'Regenerative aquaculture — kelp and shellfish arrays that clean water and sell premium harvests.', 11.1, 100, 2400000, 'active', marisolId, 'SERIES B IN VOTE', 'quarterly').lastInsertRowid);
-    v.kite = Number(addVenture.run('Kite Mesh', 'DATA', 'Community-owned wireless mesh covering transit deserts in 3 metros. Subscription revenue share.', 8.6, 100, 900000, 'active', marisolId, 'NEW LISTING', 'monthly').lastInsertRowid);
-    v.meridian = Number(addVenture.run('Meridian Water', 'INFRA', 'Atmospheric water generation for drought-hit municipalities. Take-or-pay utility contracts.', 10.2, 100, 1800000, 'active', marisolId, 'CLOSES AUG 12', 'quarterly').lastInsertRowid);
-    addVenture.run('Terrace Farms', 'AGRI', 'Greenhouse REIT — year-round produce on urban rooftops. Diligence in review, Fieldstone ETA Jul 18.', 8.9, 250, 1600000, 'pending', marisolId, null, 'quarterly');
-    addVenture.run('Kite Mesh — Metro 4', 'DATA', 'Expansion of the community mesh to a fourth metro. Diligence and audit complete, legal pending.', 8.6, 100, 400000, 'pending', marisolId, null, 'monthly');
+    v.helios = Number((await addVenture('Helios Grid', 'ENERGY', 'Solar microgrids for 240 off-grid villages across East Africa. Revenue from power purchase agreements.', 12.4, 100, 2000000, 'active', marisolId, null, 'quarterly')).lastInsertRowid);
+    v.ferrymill = Number((await addVenture('Ferrymill Robotics', 'ROBOTICS', 'Warehouse autonomy retrofits for mid-size EU logistics operators. Leasing model, 3-year contracts.', 9.2, 100, 1500000, 'active', marisolId, null, 'quarterly')).lastInsertRowid);
+    v.atlas = Number((await addVenture('Atlas Dry Ports', 'LOGISTICS', 'Inland freight hubs decongesting two LATAM port corridors. Storage + customs fees, inflation-linked.', 7.8, 250, 1200000, 'active', marisolId, null, 'quarterly')).lastInsertRowid);
+    v.nova = Number((await addVenture('Nova Reef', 'OCEAN', 'Regenerative aquaculture — kelp and shellfish arrays that clean water and sell premium harvests.', 11.1, 100, 2400000, 'active', marisolId, 'SERIES B IN VOTE', 'quarterly')).lastInsertRowid);
+    v.kite = Number((await addVenture('Kite Mesh', 'DATA', 'Community-owned wireless mesh covering transit deserts in 3 metros. Subscription revenue share.', 8.6, 100, 900000, 'active', marisolId, 'NEW LISTING', 'monthly')).lastInsertRowid);
+    v.meridian = Number((await addVenture('Meridian Water', 'INFRA', 'Atmospheric water generation for drought-hit municipalities. Take-or-pay utility contracts.', 10.2, 100, 1800000, 'active', marisolId, 'CLOSES AUG 12', 'quarterly')).lastInsertRowid);
+    await addVenture('Terrace Farms', 'AGRI', 'Greenhouse REIT — year-round produce on urban rooftops. Diligence in review, Fieldstone ETA Jul 18.', 8.9, 250, 1600000, 'pending', marisolId, null, 'quarterly');
+    await addVenture('Kite Mesh — Metro 4', 'DATA', 'Expansion of the community mesh to a fourth metro. Diligence and audit complete, legal pending.', 8.6, 100, 400000, 'pending', marisolId, null, 'monthly');
 
-    // demo stakes so pro-rata payouts have several recipients
-    const invest = db.prepare('INSERT INTO investments (user_id, venture_id, amount) VALUES (?,?,?)');
-    const led = db.prepare("INSERT INTO ledger (user_id, currency, delta, kind, ref_type, ref_id, memo) VALUES (?,?,?,?,'venture',?,?)");
-    const stakes = [
+    const invest = (uid, vid, amt) => db.prepare('INSERT INTO investments (user_id, venture_id, amount) VALUES (?,?,?)').run(uid, vid, amt);
+    const led = (uid, delta, vid) => db.prepare("INSERT INTO ledger (user_id, currency, delta, kind, ref_type, ref_id, memo) VALUES (?,'USDC',?,'invest','venture',?,'seed stake')").run(uid, delta, vid);
+    for (const [uid, vid, amt] of [
       [demo[0], v.helios, 3100], [demo[0], v.nova, 900],
       [demo[2], v.helios, 1500], [demo[2], v.ferrymill, 2200],
       [marisolId, v.atlas, 1000],
-    ];
-    for (const [uid, vid, amt] of stakes) {
-      invest.run(uid, vid, amt);
-      led.run(uid, 'USDC', -amt, 'invest', vid, 'seed stake');
-    }
+    ]) { await invest(uid, vid, amt); await led(uid, -amt, vid); }
 
-    const addProposal = db.prepare(
-      "INSERT INTO proposals (code, title, blurb, status, quorum_pct, ends_at) VALUES (?,?,?,?,?,datetime('now', ?))");
-    addProposal.run('OSM-042', 'Fund Nova Reef Series B with 2.4M OSM from the treasury',
+    const addProposal = (...a) => db.prepare(
+      "INSERT INTO proposals (code, title, blurb, status, quorum_pct, ends_at) VALUES (?,?,?,?,?,datetime('now', ?))").run(...a);
+    await addProposal('OSM-042', 'Fund Nova Reef Series B with 2.4M OSM from the treasury',
       'Proposed by @marisol. Deploys 0.84% of treasury into the Series B round at 11.1% target APY. Diligence report audited by Fieldstone. Dividends begin Q4 2026.',
       'live', 30, '+62 hours');
-    addProposal.run('OSM-041', 'List Kite Mesh on the floor', 'Turnout 71%', 'passed', 30, '-5 days');
-    addProposal.run('OSM-040', 'Cut swap fee to 0.1%', 'Turnout 68%', 'passed', 30, '-20 days');
-    addProposal.run('OSM-039', 'Open a physical branch', 'Turnout 77%', 'rejected', 30, '-38 days');
+    await addProposal('OSM-041', 'List Kite Mesh on the floor', 'Turnout 71%', 'passed', 30, '-5 days');
+    await addProposal('OSM-040', 'Cut swap fee to 0.1%', 'Turnout 68%', 'passed', 30, '-20 days');
+    await addProposal('OSM-039', 'Open a physical branch', 'Turnout 77%', 'rejected', 30, '-38 days');
 
-    db.prepare(
+    await db.prepare(
       "INSERT INTO fundraisers (venture_id, title, blurb, target, raised, backers, apy, min_amount, ends_at) VALUES (?,?,?,?,?,?,?,?,datetime('now','+9 days','+6 hours'))")
       .run(v.nova, 'Nova Reef Series B Raise',
         'Kelp and shellfish arrays that clean coastal water and sell premium harvests. This round funds 3 new reef sites and a processing barge.',
         2400000, 1600000, 1204, 11.1, 100);
 
-    audit(adminId, 'seed', 'db', 'initial seed');
+    await audit(adminId, 'seed', 'db', 'initial seed');
   });
 
   /* eslint-disable no-console */
-  console.log('┌─────────────────────────────────────────────────────────────┐');
-  console.log('│  OsmoBank seeded. Sign-in credentials (shown once):          ');
-  console.log(`│    admin    → admin@osmo.money    / ${adminPass}`);
-  console.log(`│    manager  → marisol@osmo.money  / ${managerPass}`);
-  console.log('│  Delete data/osmobank.db to reseed.                          ');
-  console.log('└─────────────────────────────────────────────────────────────┘');
+  console.log('OsmoBank seeded. Operator sign-in (shown once):');
+  console.log(`  admin   → admin@osmo.money   / ${adminPass}`);
+  console.log(`  manager → marisol@osmo.money / ${managerPass}`);
+}
+
+// ---- one-time initialisation (schema + seed) -------------------------------
+let initPromise = null;
+export function initDb() {
+  if (!initPromise) initPromise = (async () => {
+    await db.exec(SCHEMA);
+    if (process.env.OSMO_SEED !== '0') {
+      const someone = await db.prepare('SELECT 1 FROM users LIMIT 1').get();
+      if (!someone) {
+        try { await seed(); }
+        catch (e) {
+          // A concurrent cold start may have seeded first; a unique clash there
+          // is benign. Re-throw anything else.
+          if (!/UNIQUE|constraint/i.test(String(e?.message))) throw e;
+        }
+      }
+    }
+  })();
+  return initPromise;
 }

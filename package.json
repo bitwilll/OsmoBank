@@ -5,13 +5,16 @@
   "type": "module",
   "description": "OsmoBank — member-owned DAO bank: multichain wallets, venture investing, on-ledger dividends, governance.",
   "scripts": {
-    "start": "node --experimental-sqlite server/index.js",
-    "dev": "node --experimental-sqlite --watch server/index.js",
-    "test": "node --experimental-sqlite --test 'tests/*.test.js'",
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test 'tests/*.test.js'",
+    "db:migrate": "node scripts/migrate.mjs",
     "bundle:wallet": "esbuild vendor-src/wallet-libs.js --bundle --format=esm --outfile=public/vendor/wallet-libs.js --target=es2022"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "@simplewebauthn/server": "^13.3.2",
+    "ethers": "^6.13.5",
     "express": "^4.21.2"
   },
   "devDependencies": {
@@ -22,7 +25,6 @@
     "@scure/btc-signer": "^1.6.0",
     "@simplewebauthn/browser": "^13.3.0",
     "esbuild": "^0.25.0",
-    "ethers": "^6.13.5",
     "qrcode-generator": "^1.5.0"
   }
 }

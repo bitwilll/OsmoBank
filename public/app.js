@@ -108,6 +108,13 @@ export async function refreshMe() {
 function guard(screenName) {
   if (PUBLIC_SCREENS.includes(screenName)) return screenName;
   if (!me) { toast('SIGN IN FIRST', 'err'); return 'login'; }
+  // Single-active-session policy is enforced here, not only by hiding the
+  // Dashboard button: while the account is live on another device, member
+  // screens redirect to home (where the "sign out other devices" action lives).
+  if (me.session && me.session.othersLive > 0) {
+    toast('ACTIVE ON ANOTHER DEVICE — SECURE THIS SESSION FIRST', 'err');
+    return 'home';
+  }
   if (screenName === 'admin' && me.user.role !== 'admin') { toast('OPERATOR ACCESS ONLY', 'err'); return 'dash'; }
   return screenName;
 }
@@ -458,6 +465,252 @@ function promptTwoFactor(onSubmit) {
   code.focus();
 }
 
+// ---- add funds (deposit) --------------------------------------------------------
+function openDeposit() {
+  if (!me) return nav('login');
+  const m = buildModal('ADD FUNDS', 'add_card');
+  m.body.appendChild(el('div', 'font-size:13px;color:var(--mut,#757575);line-height:1.6',
+    'Top up your OsmoBank balance. In production this settles against your linked bank or card; the credit posts to your ledger and shows up across your dashboard, transfers, cards and goals.'));
+
+  m.body.appendChild(monoLabel('AMOUNT'));
+  const amount = el('input', inputCss); amount.type = 'text'; amount.inputMode = 'decimal'; amount.placeholder = '0.00';
+  m.body.appendChild(amount);
+  const chips = el('div', 'display:flex;gap:8px;margin-top:9px;flex-wrap:wrap');
+  [100, 500, 1000, 5000].forEach((v) => {
+    const chip = el('div', "border:1px solid var(--dt,#d9d9d9);border-radius:100px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer", `$${v.toLocaleString()}`);
+    chip.addEventListener('click', () => { amount.value = String(v); });
+    chips.appendChild(chip);
+  });
+  m.body.appendChild(chips);
+
+  m.body.appendChild(monoLabel('CURRENCY'));
+  const cur = el('select', inputCss);
+  [['USDC', 'USDC — spending balance'], ['OSM', 'OSM — governance token']].forEach(([v, lbl]) => {
+    const o = el('option', '', lbl); o.value = v; cur.appendChild(o);
+  });
+  m.body.appendChild(cur);
+
+  m.body.appendChild(monoLabel('SOURCE'));
+  const method = el('select', inputCss);
+  [['bank', 'Linked bank (ACH)'], ['card', 'Debit card'], ['wire', 'Wire transfer']].forEach(([v, lbl]) => {
+    const o = el('option', '', lbl); o.value = v; method.appendChild(o);
+  });
+  m.body.appendChild(method);
+
+  const go = el('div', btnCss, 'Deposit');
+  const submit = async () => {
+    const val = Number(amount.value);
+    if (!Number.isFinite(val) || val <= 0) return toast('ENTER A DEPOSIT AMOUNT', 'err');
+    try {
+      const r = await api.post('/api/deposits', { amount: val, currency: cur.value, method: method.value });
+      await refreshMe();
+      m.close();
+      const shown = cur.value === 'USDC' ? fmt.usd2(val) : `${fmt.num(val)} OSM`;
+      const bal = cur.value === 'USDC' ? fmt.usd2(r.balance) : `${fmt.num(r.balance)} OSM`;
+      toast(`DEPOSITED ${shown} · BALANCE ${bal}`);
+      if (state.screen) runHydrator(state.screen); // refresh the current screen's figures
+    } catch (e) { errToast(e); }
+  };
+  go.addEventListener('click', submit);
+  amount.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  m.body.appendChild(go);
+  amount.focus();
+}
+
+// ---- sign out --------------------------------------------------------------------
+async function doSignOut() {
+  await api.post('/api/auth/logout').catch(() => {});
+  wallet.lockVault();
+  me = null;
+  render();
+  nav('home');
+  toast('SIGNED OUT');
+}
+
+// ---- forgot / reset passphrase ----------------------------------------------------
+function openReset(prefillToken = '') {
+  const m = buildModal('RESET PASSPHRASE', 'lock_reset');
+  m.body.appendChild(el('div', 'font-size:13px;color:var(--mut,#757575);line-height:1.6',
+    'Paste the reset token from your link, then choose a new passphrase. Resetting signs you out of every device.'));
+  m.body.appendChild(monoLabel('RESET TOKEN'));
+  const tok = el('input', inputCss); tok.placeholder = 'reset token'; tok.value = prefillToken;
+  m.body.appendChild(tok);
+  m.body.appendChild(monoLabel('NEW PASSPHRASE'));
+  const p1 = el('input', inputCss); p1.type = 'password'; p1.placeholder = 'new passphrase (12+ chars)';
+  m.body.appendChild(p1);
+  const p2 = el('input', inputCss + ';margin-top:8px'); p2.type = 'password'; p2.placeholder = 'confirm new passphrase';
+  m.body.appendChild(p2);
+  const go = el('div', btnCss, 'Set new passphrase');
+  const submit = async () => {
+    if (!tok.value.trim()) return toast('PASTE YOUR RESET TOKEN', 'err');
+    if ((p1.value || '').length < 12) return toast('PASSPHRASE MUST BE 12+ CHARACTERS', 'err');
+    if (p1.value !== p2.value) return toast('PASSPHRASES DO NOT MATCH', 'err');
+    try {
+      await api.post('/api/auth/reset', { token: tok.value.trim(), next: p1.value });
+      m.close();
+      me = null; render();
+      nav('login');
+      toast('PASSPHRASE RESET · SIGN IN WITH YOUR NEW ONE');
+    } catch (e) { errToast(e); }
+  };
+  go.addEventListener('click', submit);
+  p2.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  m.body.appendChild(go);
+  (prefillToken ? p1 : tok).focus();
+}
+
+function openForgot() {
+  const m = buildModal('FORGOT PASSPHRASE', 'help');
+  m.body.appendChild(el('div', 'font-size:13px;color:var(--mut,#757575);line-height:1.6',
+    "Enter your email or @handle. If an account exists, we'll send a single-use reset link that expires in 30 minutes."));
+  m.body.appendChild(monoLabel('EMAIL OR @HANDLE'));
+  const id = el('input', inputCss); id.placeholder = 'you@anywhere.earth';
+  const loginId = $('[data-partial="login"] input[placeholder="amara@osmo.money"]')?.value?.trim();
+  if (loginId) id.value = loginId;
+  m.body.appendChild(id);
+  const note = el('div', 'font-size:12.5px;color:var(--mut,#757575);line-height:1.6;margin-top:12px;display:none');
+  const go = el('div', btnCss, 'Send reset link');
+  const submit = async () => {
+    if (!id.value.trim()) return toast('ENTER YOUR EMAIL OR @HANDLE', 'err');
+    try {
+      const r = await api.post('/api/auth/forgot', { identifier: id.value.trim() });
+      note.style.display = '';
+      note.textContent = 'If that account exists, a reset link is on its way. Check your email.';
+      if (r.devToken) {
+        // Local/dev: no mail server, so hand the flow straight to the reset step.
+        m.close();
+        toast('DEV MODE · REVEALED RESET TOKEN');
+        openReset(r.devToken);
+      }
+    } catch (e) { errToast(e); }
+  };
+  go.addEventListener('click', submit);
+  id.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  m.body.appendChild(go);
+  m.body.appendChild(note);
+  const recover = el('div', btnGhostCss, 'Reset another way — card or recovery phrase');
+  recover.addEventListener('click', () => { m.close(); openRecover(); });
+  m.body.appendChild(recover);
+  const alt = el('div', btnGhostCss, 'I already have a reset token');
+  alt.addEventListener('click', () => { m.close(); openReset(); });
+  m.body.appendChild(alt);
+  const contact = el('div', 'text-align:center;font-size:12.5px;color:var(--mut,#757575);margin-top:14px;cursor:pointer;text-decoration:underline', 'Still stuck? Contact support');
+  contact.addEventListener('click', () => { m.close(); openSupport('password_reset'); });
+  m.body.appendChild(contact);
+  id.focus();
+}
+
+// ---- contact / support -----------------------------------------------------------
+function openSupport(presetCategory) {
+  const m = buildModal('CONTACT SUPPORT', 'support_agent');
+  m.body.appendChild(el('div', 'font-size:13px;color:var(--mut,#757575);line-height:1.6',
+    "Trouble signing in, a payment question, or need a password reset? Send our team a note and we'll get back to you."));
+  const authed = !!me;
+  let email;
+  if (!authed) {
+    m.body.appendChild(monoLabel('YOUR EMAIL (SO WE CAN REPLY)'));
+    email = el('input', inputCss); email.placeholder = 'you@anywhere.earth';
+    const pre = $('[data-partial="login"] input[placeholder="amara@osmo.money"]')?.value?.trim();
+    if (pre && pre.includes('@')) email.value = pre;
+    m.body.appendChild(email);
+  }
+  m.body.appendChild(monoLabel('TOPIC'));
+  const cat = el('select', inputCss);
+  [['troubleshooting', "Troubleshooting / can't sign in"], ['password_reset', 'Password reset help'],
+    ['account', 'Account'], ['payments', 'Payments'], ['security', 'Security'], ['other', 'Something else']]
+    .forEach(([v, l]) => { const o = el('option', '', l); o.value = v; cat.appendChild(o); });
+  if (presetCategory) cat.value = presetCategory;
+  m.body.appendChild(cat);
+  m.body.appendChild(monoLabel('HOW CAN WE HELP?'));
+  const msg = el('textarea', inputCss + ';min-height:96px;resize:vertical'); msg.placeholder = 'Describe the issue…';
+  m.body.appendChild(msg);
+  const go = el('div', btnCss, 'Send to support');
+  const submit = async () => {
+    const message = msg.value.trim();
+    if (message.length < 5) return toast('PLEASE DESCRIBE THE ISSUE', 'err');
+    const body = { category: cat.value, message };
+    if (!authed && email?.value.trim()) body.email = email.value.trim();
+    try {
+      const r = await api.post('/api/support', body);
+      m.close();
+      toast(`SUPPORT REQUEST SENT · REF #${r.ref}`);
+    } catch (e) { errToast(e); }
+  };
+  go.addEventListener('click', submit);
+  m.body.appendChild(go);
+}
+
+// ---- self-service recovery (card credential OR recovery phrase) --------------------
+function openRecover() {
+  const m = buildModal('RECOVER YOUR ACCOUNT', 'health_and_safety');
+  m.body.appendChild(el('div', 'font-size:13px;color:var(--mut,#757575);line-height:1.6',
+    "Prove it's you without email — with an OsmoBank card or your wallet recovery phrase — then set a new passphrase."));
+
+  m.body.appendChild(monoLabel('EMAIL OR @HANDLE'));
+  const id = el('input', inputCss); id.placeholder = 'you@anywhere.earth';
+  const pre = $('[data-partial="login"] input[placeholder="amara@osmo.money"]')?.value?.trim();
+  if (pre) id.value = pre;
+  m.body.appendChild(id);
+
+  const TAB_ON = 'flex:1;text-align:center;padding:9px 0;border-radius:100px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);font-size:12.5px;font-weight:600;cursor:pointer';
+  const TAB_OFF = 'flex:1;text-align:center;padding:9px 0;border-radius:100px;border:1px solid var(--dt,#d9d9d9);color:var(--mut,#757575);font-size:12.5px;font-weight:600;cursor:pointer';
+  const tabWrap = el('div', 'display:flex;gap:8px;margin:14px 0');
+  const tabCard = el('div', '', 'Card'); tabCard.setAttribute('role', 'button'); tabCard.tabIndex = 0;
+  const tabSeed = el('div', '', 'Recovery phrase'); tabSeed.setAttribute('role', 'button'); tabSeed.tabIndex = 0;
+  tabWrap.append(tabCard, tabSeed);
+  m.body.appendChild(tabWrap);
+
+  // card pane
+  const cardPane = el('div');
+  cardPane.appendChild(monoLabel('CARD NUMBER'));
+  const pan = el('input', inputCss); pan.inputMode = 'numeric'; pan.placeholder = '4735 •••• •••• ••••';
+  cardPane.appendChild(pan);
+  const row = el('div', 'display:flex;gap:10px');
+  const expCol = el('div', 'flex:1'); expCol.appendChild(monoLabel('EXPIRY'));
+  const exp = el('input', inputCss); exp.placeholder = 'MM/YY'; expCol.appendChild(exp);
+  const cvvCol = el('div', 'flex:1'); cvvCol.appendChild(monoLabel('SECURITY CODE'));
+  const cvv = el('input', inputCss); cvv.placeholder = 'CVV'; cvv.inputMode = 'numeric'; cvvCol.appendChild(cvv);
+  row.append(expCol, cvvCol);
+  cardPane.appendChild(row);
+  const cardGo = el('div', btnCss, 'Verify card');
+  cardGo.addEventListener('click', async () => {
+    if (!id.value.trim()) return toast('ENTER YOUR EMAIL OR @HANDLE', 'err');
+    try {
+      const r = await api.post('/api/auth/recover/card', { identifier: id.value.trim(), pan: pan.value, exp: exp.value, cvv: cvv.value });
+      m.close(); toast('CARD VERIFIED · SET A NEW PASSPHRASE'); openReset(r.resetToken);
+    } catch (e) { errToast(e); }
+  });
+  cardPane.appendChild(cardGo);
+
+  // seed pane
+  const seedPane = el('div', 'display:none');
+  seedPane.appendChild(monoLabel('RECOVERY PHRASE (12 OR 24 WORDS)'));
+  const phrase = el('textarea', inputCss + ';min-height:84px;resize:vertical'); phrase.placeholder = 'word1 word2 word3 …';
+  seedPane.appendChild(phrase);
+  seedPane.appendChild(el('div', 'font-size:11.5px;color:var(--fnt,#a3a3a3);line-height:1.5;margin-top:6px',
+    'Your phrase is used only on this device to sign a one-time challenge — it never leaves your browser.'));
+  const seedGo = el('div', btnCss, 'Verify phrase');
+  seedGo.addEventListener('click', async () => {
+    if (!id.value.trim()) return toast('ENTER YOUR EMAIL OR @HANDLE', 'err');
+    if (phrase.value.trim().split(/\s+/).filter(Boolean).length < 12) return toast('ENTER YOUR 12+ WORD PHRASE', 'err');
+    try {
+      const { nonce } = await api.post('/api/auth/recover/challenge', {});
+      const { signature } = await wallet.signChallenge(phrase.value, nonce);
+      const r = await api.post('/api/auth/recover/seed', { identifier: id.value.trim(), nonce, signature });
+      phrase.value = '';
+      m.close(); toast('PHRASE VERIFIED · SET A NEW PASSPHRASE'); openReset(r.resetToken);
+    } catch (e) { errToast(e); }
+  });
+  seedPane.appendChild(seedGo);
+
+  m.body.append(cardPane, seedPane);
+  const showCard = () => { tabCard.style.cssText = TAB_ON; tabSeed.style.cssText = TAB_OFF; cardPane.style.display = ''; seedPane.style.display = 'none'; };
+  const showSeed = () => { tabSeed.style.cssText = TAB_ON; tabCard.style.cssText = TAB_OFF; seedPane.style.display = ''; cardPane.style.display = 'none'; };
+  tabCard.addEventListener('click', showCard);
+  tabSeed.addEventListener('click', showSeed);
+  showCard();
+}
+
 // ---- global actions ---------------------------------------------------------------
 const DEMO_VENTURES = {
   invHelios: ['Helios Grid', '12.4'], invFerrymill: ['Ferrymill Robotics', '9.2'],
@@ -536,6 +789,17 @@ const actions = {
   },
 
   profile: openProfile,
+  signOut: doSignOut,
+  forgotPass: openForgot,
+  recoverAccount: openRecover,
+  contactSupport: () => openSupport(),
+  addFunds: openDeposit,
+  exportLedger: () => { window.open('/api/reports/export', '_blank'); toast('LEDGER EXPORTED · CSV'); },
+  copyReferral() {
+    const link = `osmo.money/r/${me?.user?.handle || 'you'}`;
+    navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
+    toast(`REFERRAL LINK COPIED · ${link.toUpperCase()}`);
+  },
   closeInvest,
   investMax() {
     const inv = state.invest;
@@ -610,6 +874,15 @@ async function boot() {
   }));
 
   await refreshMe();
+
+  // Reset deep-link (from the emailed link): #/reset?token=… → open reset on login.
+  const resetMatch = /^#\/reset\?token=([A-Za-z0-9_-]+)$/.exec(location.hash);
+  if (resetMatch) {
+    history.replaceState(null, '', '#/login');
+    await applyScreen('login');
+    openReset(decodeURIComponent(resetMatch[1]));
+    return;
+  }
 
   const stored = store.get('ob_screen');
   const initial = routeFromHash() || (SCREENS.includes(stored) ? stored : 'home');

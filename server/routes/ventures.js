@@ -34,10 +34,10 @@ const VENTURE_WITH_AGGREGATES = `
   FROM ventures v`;
 
 export default function mount(app) {
-  app.get('/api/ventures', requireAuth, (req, res, next) => {
+  app.get('/api/ventures', requireAuth, async (req, res, next) => {
     try {
       const seesAll = req.user.role === 'admin' || req.user.role === 'manager';
-      const rows = db.prepare(
+      const rows = await db.prepare(
         `${VENTURE_WITH_AGGREGATES}
          WHERE v.status IN ('active','closed') OR ? = 1
          ORDER BY v.id`)
@@ -46,7 +46,7 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
-  app.post('/api/ventures', requireRole('manager', 'admin'), (req, res, next) => {
+  app.post('/api/ventures', requireRole('manager', 'admin'), async (req, res, next) => {
     try {
       const name = str(req.body?.name, { min: 2, max: 80, name: 'name' });
       const sector = str(req.body?.sector, { min: 2, max: 40, name: 'sector' });
@@ -65,46 +65,46 @@ export default function mount(app) {
         if (req.user.role !== 'admin' && requested !== req.user.id) {
           throw new ApiError(403, 'Only admins may assign another manager');
         }
-        const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(requested);
+        const target = await db.prepare('SELECT id, role FROM users WHERE id = ?').get(requested);
         if (!target || !['manager', 'admin'].includes(target.role)) {
           throw new ApiError(400, 'managerId must reference a manager or admin');
         }
         managerId = target.id;
       }
 
-      const venture = tx(() => {
-        const id = Number(db.prepare(
+      const venture = await tx(async () => {
+        const id = Number((await db.prepare(
           `INSERT INTO ventures (name, sector, blurb, apy, min_amount, target_amount, status, manager_id, payout_freq)
            VALUES (?,?,?,?,?,?,'pending',?,?)`)
-          .run(name, sector, blurb, apy, minAmount, targetAmount, managerId, payoutFreq).lastInsertRowid);
-        audit(req.user.id, 'venture.create', `venture:${id}`, name);
-        return db.prepare(`${VENTURE_WITH_AGGREGATES} WHERE v.id = ?`).get(req.user.id, id);
+          .run(name, sector, blurb, apy, minAmount, targetAmount, managerId, payoutFreq)).lastInsertRowid);
+        await audit(req.user.id, 'venture.create', `venture:${id}`, name);
+        return await db.prepare(`${VENTURE_WITH_AGGREGATES} WHERE v.id = ?`).get(req.user.id, id);
       });
       res.status(201).json({ venture: ventureView(venture) });
     } catch (e) { next(e); }
   });
 
-  app.post('/api/ventures/:id/invest', requireAuth, (req, res, next) => {
+  app.post('/api/ventures/:id/invest', requireAuth, async (req, res, next) => {
     try {
       const id = num(req.params.id, { int: true, min: 1, name: 'id' });
       const amount = round2(num(req.body?.amount, { min: 0.01, max: 1e9, name: 'amount' }));
 
-      const out = tx(() => {
-        const v = db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+      const out = await tx(async () => {
+        const v = await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
         if (!v) throw new ApiError(404, 'Venture not found');
         if (v.status !== 'active') throw new ApiError(400, 'Venture is not open for investment');
         if (amount < v.min_amount) throw new ApiError(400, `Minimum investment is ${v.min_amount}`);
-        if (balance(req.user.id, 'USDC') < amount) throw new ApiError(400, 'Insufficient balance');
+        if (await balance(req.user.id, 'USDC') < amount) throw new ApiError(400, 'Insufficient balance');
 
-        db.prepare(
+        await db.prepare(
           `INSERT INTO ledger (user_id, currency, delta, kind, ref_type, ref_id, memo)
            VALUES (?,?,?,'invest','venture',?,?)`)
           .run(req.user.id, 'USDC', -amount, id, `Invested in ${v.name}`);
-        const invId = Number(db.prepare(
+        const invId = Number((await db.prepare(
           'INSERT INTO investments (user_id, venture_id, amount) VALUES (?,?,?)')
-          .run(req.user.id, id, amount).lastInsertRowid);
-        const inv = db.prepare('SELECT * FROM investments WHERE id = ?').get(invId);
-        return { inv, bal: balance(req.user.id, 'USDC') };
+          .run(req.user.id, id, amount)).lastInsertRowid);
+        const inv = await db.prepare('SELECT * FROM investments WHERE id = ?').get(invId);
+        return { inv, bal: await balance(req.user.id, 'USDC') };
       });
 
       res.status(201).json({
@@ -121,25 +121,25 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
-  app.post('/api/ventures/:id/exit', requireAuth, (req, res, next) => {
+  app.post('/api/ventures/:id/exit', requireAuth, async (req, res, next) => {
     try {
       const id = num(req.params.id, { int: true, min: 1, name: 'id' });
 
-      const returned = tx(() => {
-        const v = db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+      const returned = await tx(async () => {
+        const v = await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
         if (!v) throw new ApiError(404, 'Venture not found');
-        const stake = db.prepare(
+        const stake = (await db.prepare(
           `SELECT COALESCE(SUM(amount),0) AS s FROM investments
            WHERE user_id = ? AND venture_id = ? AND status = 'active'`)
-          .get(req.user.id, id).s;
+          .get(req.user.id, id)).s;
         if (stake <= 0) throw new ApiError(400, 'No active stake in this venture');
 
-        db.prepare(
+        await db.prepare(
           `UPDATE investments SET status = 'exited'
            WHERE user_id = ? AND venture_id = ? AND status = 'active'`)
           .run(req.user.id, id);
         const credit = round2(stake);
-        db.prepare(
+        await db.prepare(
           `INSERT INTO ledger (user_id, currency, delta, kind, ref_type, ref_id, memo)
            VALUES (?,?,?,'exit','venture',?,?)`)
           .run(req.user.id, 'USDC', credit, id, `Exited ${v.name}`);
@@ -150,7 +150,7 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
-  app.post('/api/ventures/:id/payouts', requireAuth, (req, res, next) => {
+  app.post('/api/ventures/:id/payouts', requireAuth, async (req, res, next) => {
     try {
       const id = num(req.params.id, { int: true, min: 1, name: 'id' });
       const kind = oneOf(req.body?.kind, ['dividend', 'reimbursement'], 'kind');
@@ -159,15 +159,15 @@ export default function mount(app) {
         ? str(req.body.memo, { min: 1, max: 200, name: 'memo' })
         : null;
 
-      const out = tx(() => {
-        const v = db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+      const out = await tx(async () => {
+        const v = await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
         if (!v) throw new ApiError(404, 'Venture not found');
         if (req.user.role !== 'admin' && v.manager_id !== req.user.id) {
           throw new ApiError(403, 'Only the venture manager or an admin may distribute payouts');
         }
 
         // Stake per user (largest first; ties broken by lowest user id).
-        const stakes = db.prepare(
+        const stakes = await db.prepare(
           `SELECT user_id, SUM(amount) AS stake FROM investments
            WHERE venture_id = ? AND status = 'active'
            GROUP BY user_id ORDER BY stake DESC, user_id ASC`).all(id);
@@ -198,23 +198,23 @@ export default function mount(app) {
         }
         const items = shares.map((s) => ({ userId: s.userId, amount: round2(s.cents / 100) }));
 
-        const payoutId = Number(db.prepare(
+        const payoutId = Number((await db.prepare(
           'INSERT INTO payouts (venture_id, kind, total, memo, created_by) VALUES (?,?,?,?,?)')
-          .run(id, kind, total, memo, req.user.id).lastInsertRowid);
+          .run(id, kind, total, memo, req.user.id)).lastInsertRowid);
         const addItem = db.prepare(
           'INSERT INTO payout_items (payout_id, user_id, amount) VALUES (?,?,?)');
         const addLedger = db.prepare(
           `INSERT INTO ledger (user_id, currency, delta, kind, ref_type, ref_id, memo)
            VALUES (?,?,?,?,'venture',?,?)`);
         for (const item of items) {
-          addItem.run(payoutId, item.userId, item.amount);
+          await addItem.run(payoutId, item.userId, item.amount);
           if (item.amount > 0) {
-            addLedger.run(item.userId, 'USDC', item.amount, kind, id, memo ?? `${kind}: ${v.name}`);
+            await addLedger.run(item.userId, 'USDC', item.amount, kind, id, memo ?? `${kind}: ${v.name}`);
           }
         }
-        audit(req.user.id, 'venture.payout', `venture:${id}`,
+        await audit(req.user.id, 'venture.payout', `venture:${id}`,
           `${kind} ${total.toFixed(2)} across ${items.length} holders`);
-        const payout = db.prepare('SELECT * FROM payouts WHERE id = ?').get(payoutId);
+        const payout = await db.prepare('SELECT * FROM payouts WHERE id = ?').get(payoutId);
         return { payout, items };
       });
 
@@ -233,13 +233,13 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
-  app.get('/api/ventures/:id/payouts', requireAuth, (req, res, next) => {
+  app.get('/api/ventures/:id/payouts', requireAuth, async (req, res, next) => {
     try {
       const id = num(req.params.id, { int: true, min: 1, name: 'id' });
-      const v = db.prepare('SELECT id FROM ventures WHERE id = ?').get(id);
+      const v = await db.prepare('SELECT id FROM ventures WHERE id = ?').get(id);
       if (!v) throw new ApiError(404, 'Venture not found');
 
-      const rows = db.prepare(
+      const rows = await db.prepare(
         `SELECT p.id, p.kind, p.total, p.memo, p.created_at,
            COALESCE((SELECT SUM(pi.amount) FROM payout_items pi
                      WHERE pi.payout_id = p.id AND pi.user_id = ?), 0) AS your_share

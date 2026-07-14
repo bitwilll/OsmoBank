@@ -153,7 +153,19 @@ function apply(root, ctx, f) {
   if (f.blurb) set('fund.blurb', String(f.blurb).replace(/\s*Backed by proposal[^.]*\.?\s*$/i, ''));
   if (f.proposalCode) set('fund.proposalCode', f.proposalCode);
   if (f.proposalForPct != null) set('fund.proposalForPct', fmt.pct(f.proposalForPct, 0));
-  set('fund.others', `${fmt.num(Math.max(0, (f.backers ?? 0) - 2))} others`);
+  // Backer social proof — real count only. We have no backer identities from the
+  // API (fundraiserView returns just a count), so we never fabricate @handles or
+  // initials. The avatar cluster is a non-identifying decoration; hide it when
+  // nobody has backed yet so it can't imply members who don't exist.
+  const backerCount = Number(f.backers) || 0;
+  const line = ctx.slot(root, 'fund.backerLine');
+  if (line) {
+    line.textContent = backerCount > 0
+      ? `${fmt.num(backerCount)} ${backerCount === 1 ? 'person has' : 'people have'} backed this raise`
+      : 'Be the first to back this raise';
+  }
+  const avatars = ctx.slot(root, 'fund.backerAvatars');
+  if (avatars) avatars.style.display = backerCount > 0 ? 'flex' : 'none';
 
   // USE OF FUNDS — dotted meters sized by share of target
   const uof = ctx.list(root, 'fund.useOfFunds');

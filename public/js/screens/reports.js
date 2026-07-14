@@ -164,5 +164,8 @@ export async function hydrate(root, ctx) {
     const row = st.add();
     slot(row, 'm').textContent = 'No statements yet';
     slot(row, 'meta').textContent = '0 TX';
+    // Nothing to download in the empty state — hide the per-row PDF icon.
+    const dl = row.querySelector('[data-action="exportPdf"]');
+    if (dl) dl.style.display = 'none';
   }
 }

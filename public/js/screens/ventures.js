@@ -62,7 +62,7 @@ export async function hydrate(root, ctx) {
   if (!root.dataset.hydrated) {
     root.__vent = { data: [], filter: 'ALL', sort: 'desc' };
 
-    ctx.setAction('ventureProspectus', () => ctx.toast('PROSPECTUS · AUDITED BY FIELDSTONE · DEMO'));
+    ctx.setAction('ventureProspectus', () => ctx.toast('PROSPECTUS · NOT YET AVAILABLE'));
     ctx.setAction('ventureFilter', (elx) => {
       root.__vent.filter = (elx && elx.dataset && elx.dataset.sector) || 'ALL';
       applyChipStyles(root);
@@ -153,11 +153,17 @@ function renderCards(root, ctx) {
   const role = meNow?.user?.role;
   const roles = { isAdmin: role === 'admin', role, myId: meNow?.user?.id };
 
+  let shown = 0;
   for (const v of sorted) {
     if (st.filter !== 'ALL' && v.sector !== st.filter) continue;
     const row = list.add();
     fillCard(row, v, root, ctx, roles);
+    shown += 1;
   }
+
+  // Honest empty state when the floor (or the active filter) has no listings.
+  const empty = ctx.slot(root, 'ventures.cardsEmpty');
+  if (empty) empty.style.display = shown ? 'none' : '';
 }
 
 function fillCard(row, v, root, ctx, roles) {

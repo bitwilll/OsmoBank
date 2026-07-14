@@ -38,7 +38,7 @@
         <div style="display:flex;gap:9px;margin-top:24px;flex-wrap:wrap">
           <div data-action="goTransfer" role="button" tabindex="0" style="padding:12px 26px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;vertical-align:-3px;margin-right:7px">north_east</span>Send</div>
           <div data-action="goWallets" role="button" tabindex="0" style="padding:12px 26px;background:var(--sf,#fff);border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-2"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;vertical-align:-3px;margin-right:7px">south_west</span>Receive</div>
-          <div data-action="demoSwap" role="button" tabindex="0" style="padding:12px 26px;background:var(--sf,#fff);border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-2"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;vertical-align:-3px;margin-right:7px">swap_horiz</span>Swap</div>
+          <div data-action="addFunds" role="button" tabindex="0" style="padding:12px 26px;background:var(--sf,#fff);border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-2"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;vertical-align:-3px;margin-right:7px">add_card</span>Add funds</div>
           <div data-action="goVentures" role="button" tabindex="0" style="display:flex;align-items:center;gap:7px;padding:12px 26px;background:var(--sf,#fff);border:1px solid var(--reds,#f0b9b5);color:var(--red,#c47b10);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-6"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">diamond</span>Invest</div>
         </div>
       </div>
@@ -129,79 +129,49 @@
       <div data-action="goEdge" role="button" tabindex="0" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;cursor:pointer;color:var(--red,#c47b10)" class="obh-0"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">query_stats</span>INVESTOR'S EDGE →</div>
       <div data-action="goVentures" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;cursor:pointer" class="obh-7">BROWSE THE FLOOR →</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:13px">
-      <div data-action="invHelios" role="button" tabindex="0" style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:18px;cursor:pointer" class="obh-2">
-        <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:#f5a623">solar_power</span>ENERGY</div>
-        <div style="font-size:16px;font-weight:700;margin-top:10px">Helios Grid</div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px"><span style="font-family:'Doto',monospace;font-weight:900;font-size:28px">12.4</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--mut,#757575)">% APY</span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px"><span style="color:var(--mut,#757575)">STAKE $6,200</span><span style="color:var(--grn,#17a562)">+$1,120</span></div>
+    <div data-list="dash.ventures" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:13px">
+      <div data-slot="dash.venture.card" role="button" tabindex="0" style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:18px;cursor:pointer" class="obh-2">
+        <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--mut,#757575)"><span data-slot="dash.venture.icon" style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--red,#c47b10)">category</span><span data-slot="dash.venture.sector">SECTOR</span></div>
+        <div data-slot="dash.venture.name" style="font-size:16px;font-weight:700;margin-top:10px">Venture</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px"><span data-slot="dash.venture.apy" style="font-family:'Doto',monospace;font-weight:900;font-size:28px">0.0</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--mut,#757575)">% APY</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px"><span data-slot="dash.venture.stake" style="color:var(--mut,#757575)">STAKE $0</span><span data-slot="dash.venture.pl" style="color:var(--grn,#17a562)">+$0</span></div>
       </div>
-      <div data-action="invFerrymill" role="button" tabindex="0" style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:18px;cursor:pointer" class="obh-2">
-        <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:#38bdd4">precision_manufacturing</span>ROBOTICS</div>
-        <div style="font-size:16px;font-weight:700;margin-top:10px">Ferrymill Robotics</div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px"><span style="font-family:'Doto',monospace;font-weight:900;font-size:28px">9.2</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--mut,#757575)">% APY</span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px"><span style="color:var(--mut,#757575)">STAKE $5,400</span><span style="color:var(--grn,#17a562)">+$806</span></div>
-      </div>
-      <div data-action="invAtlas" role="button" tabindex="0" style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:18px;cursor:pointer" class="obh-2">
-        <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:#8a8f98">local_shipping</span>LOGISTICS</div>
-        <div style="font-size:16px;font-weight:700;margin-top:10px">Atlas Dry Ports</div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px"><span style="font-family:'Doto',monospace;font-weight:900;font-size:28px">7.8</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--mut,#757575)">% APY</span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px"><span style="color:var(--mut,#757575)">STAKE $4,250</span><span style="color:var(--grn,#17a562)">+$492</span></div>
-      </div>
-      <div data-action="invNova" role="button" tabindex="0" style="background:var(--sf,#fff);border:1px solid var(--reds,#f0b9b5);border-radius:18px;padding:18px;cursor:pointer" class="obh-8">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:#1fb597">waves</span>OCEAN</div>
-          <div style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:var(--red,#c47b10)"><span style="width:5px;height:5px;border-radius:50%;background:var(--red,#c47b10);display:inline-block"></span>IN VOTE</div>
-        </div>
-        <div style="font-size:16px;font-weight:700;margin-top:10px">Nova Reef</div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px"><span style="font-family:'Doto',monospace;font-weight:900;font-size:28px">11.1</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--mut,#757575)">% APY</span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px"><span style="color:var(--mut,#757575)">STAKE $2,550</span><span style="color:var(--grn,#17a562)">+$494</span></div>
-      </div>
+    </div>
+    <div data-slot="dash.venturesEmpty" style="display:none;background:var(--sf,#fff);border:1px dashed var(--dt2,#c6c6c6);border-radius:18px;padding:24px;text-align:center">
+      <div style="font-size:14.5px;font-weight:600">You haven't invested yet</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--mut,#757575);margin-top:6px">Browse the venture floor to put your capital to work.</div>
+      <div data-action="goVentures" role="button" tabindex="0" style="display:inline-block;margin-top:13px;padding:9px 20px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3">Browse the floor →</div>
     </div>
 
     <div style="border-top:1px dotted var(--dt2,#c6c6c6);margin-top:20px;padding:22px 0 14px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
       <div style="font-family:'Doto',monospace;font-weight:900;font-size:19px">03</div>
       <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;color:var(--mut,#757575)">ACTIVITY / GOALS / CARD / REFERRAL</div>
-      <div data-action="demoExport" role="button" tabindex="0" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;cursor:pointer" class="obh-7"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">download</span>EXPORT</div>
+      <div data-action="exportLedger" role="button" tabindex="0" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;cursor:pointer" class="obh-7"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">download</span>EXPORT</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:13px;padding-bottom:36px">
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:6px 18px">
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px dotted var(--dt,#d9d9d9)">
-          <span style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;color:var(--grn,#17a562)">call_received</span>
-          <div style="flex:1"><div style="font-size:14px;font-weight:600">Received from @kenji</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">13:42 · CONF 6/6</div></div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+0.0120 BTC</div>
+        <div data-list="dash.activity">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px dotted var(--dt,#d9d9d9)">
+            <span data-slot="dash.act.icon" style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;color:var(--grn,#17a562)">call_received</span>
+            <div style="flex:1"><div data-slot="dash.act.title" style="font-size:14px;font-weight:600">Activity</div><div data-slot="dash.act.sub" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">—</div></div>
+            <div data-slot="dash.act.amount" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+0</div>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px dotted var(--dt,#d9d9d9)">
-          <span style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1">diamond</span>
-          <div style="flex:1"><div style="font-size:14px;font-weight:600">Staked · Atlas Dry Ports</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">11:07 · VIA USDC</div></div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">−450.00 USDC</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px dotted var(--dt,#d9d9d9)">
-          <span style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;color:var(--grn,#17a562)">payments</span>
-          <div style="flex:1"><div style="font-size:14px;font-weight:600">Dividend · Helios Grid Q2</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 09 · PAID IN USDC</div></div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--grn,#17a562)">+$96.40</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 0">
-          <span style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;color:var(--mut,#757575)">swap_horiz</span>
-          <div style="flex:1"><div style="font-size:14px;font-weight:600">Swap ETH → OSM</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">JUL 08 · RATE 1:1,660</div></div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">−2.10 ETH</div>
-        </div>
+        <div data-slot="dash.activityEmpty" style="display:none;padding:30px 0;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fnt,#a3a3a3)">No activity yet — your transfers and payouts appear here.</div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:18px">
         <div style="display:flex;justify-content:space-between;align-items:baseline">
           <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">flag</span>GOALS</div>
           <div data-action="goGoals" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;cursor:pointer" class="obh-7">ALL →</div>
         </div>
-        <div style="margin-top:14px">
-          <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px"><span style="font-weight:600">Kyoto sabbatical</span><span style="font-family:'Doto',monospace;font-weight:900">60%</span></div>
-          <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:60%;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-          <div style="margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">$12,000 / $20,000</div>
+        <div data-list="dash.goals">
+          <div style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px"><span data-slot="dash.goal.name" style="font-weight:600">Goal</span><span data-slot="dash.goal.pct" style="font-family:'Doto',monospace;font-weight:900">0%</span></div>
+            <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="dash.goal.bar" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
+            <div data-slot="dash.goal.amt" style="margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">$0 / $0</div>
+          </div>
         </div>
-        <div style="margin-top:16px">
-          <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px"><span style="font-weight:600">Emergency runway</span><span style="font-family:'Doto',monospace;font-weight:900">80%</span></div>
-          <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:80%;background-image:radial-gradient(circle,var(--grn,#17a562) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-          <div style="margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">$9,600 / $12,000</div>
-        </div>
+        <div data-slot="dash.goalsEmpty" style="display:none;margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fnt,#a3a3a3)">No savings goals yet — set one from the Goals screen.</div>
       </div>
       <div data-action="goCards" role="button" tabindex="0" style="background:var(--ink,#0a0a0a);border-radius:18px;padding:18px;display:flex;flex-direction:column;min-height:160px;cursor:pointer;background-image:radial-gradient(circle,color-mix(in srgb,var(--inv,#fff) 9%,transparent) 1px,transparent 1.6px);background-size:11px 11px" class="obh-9">
         <div style="display:flex;justify-content:space-between;align-items:center;color:var(--inv,#fff)">
@@ -209,8 +179,8 @@
           <span style="font-family:'Material Symbols Sharp';font-size:20px;line-height:1">contactless</span>
         </div>
         <div style="margin-top:auto;color:var(--inv,#fff)">
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:.18em">•••• •••• •••• 4821</div>
-          <div style="display:flex;justify-content:space-between;margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;opacity:.6"><span>A. OKAFOR · VIRTUAL</span><span>−$64.20 · GROCERIES</span></div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:.18em">•••• •••• •••• <span data-slot="dash.card.last4">••••</span></div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;opacity:.6"><span data-slot="dash.card.holder">— · VIRTUAL</span><span data-slot="dash.card.spend">$0.00 · THIS MONTH</span></div>
         </div>
       </div>
       <div style="background:var(--sf,#fff);border:1px solid var(--reds,#f0b9b5);border-radius:18px;padding:18px">
@@ -219,18 +189,18 @@
           <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3)">TIER: SCOUT</div>
         </div>
         <div style="font-size:15.5px;font-weight:700;margin-top:12px;line-height:1.4">Give 10 OSM, get 10 OSM</div>
-        <div data-action="demoRef" role="button" tabindex="0" style="display:flex;align-items:center;gap:9px;margin-top:12px;border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:9px 15px;cursor:pointer" class="obh-6">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.04em;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">osmo.money/r/amara</span>
+        <div data-action="copyReferral" role="button" tabindex="0" style="display:flex;align-items:center;gap:9px;margin-top:12px;border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:9px 15px;cursor:pointer" class="obh-6">
+          <span data-slot="dash.ref.link" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.04em;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">osmo.money/r/you</span>
           <span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1;color:var(--mut,#757575)">content_copy</span>
         </div>
         <div style="display:flex;gap:0;margin-top:14px;padding-top:12px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--mut,#757575)">
-          <div style="flex:1">INVITED<br><span style="font-family:'Doto',monospace;font-weight:900;font-size:19px;color:var(--ink,#0a0a0a)">12</span></div>
-          <div style="flex:1;border-left:1px dotted var(--dt,#d9d9d9);padding-left:14px">JOINED<br><span style="font-family:'Doto',monospace;font-weight:900;font-size:19px;color:var(--ink,#0a0a0a)">8</span></div>
-          <div style="flex:1;border-left:1px dotted var(--dt,#d9d9d9);padding-left:14px">EARNED<br><span style="font-family:'Doto',monospace;font-weight:900;font-size:19px;color:var(--grn,#17a562)">80 OSM</span></div>
+          <div style="flex:1">INVITED<br><span data-slot="dash.ref.invited" style="font-family:'Doto',monospace;font-weight:900;font-size:19px;color:var(--ink,#0a0a0a)">0</span></div>
+          <div style="flex:1;border-left:1px dotted var(--dt,#d9d9d9);padding-left:14px">JOINED<br><span data-slot="dash.ref.joined" style="font-family:'Doto',monospace;font-weight:900;font-size:19px;color:var(--ink,#0a0a0a)">0</span></div>
+          <div style="flex:1;border-left:1px dotted var(--dt,#d9d9d9);padding-left:14px">EARNED<br><span data-slot="dash.ref.earned" style="font-family:'Doto',monospace;font-weight:900;font-size:19px;color:var(--grn,#17a562)">0 OSM</span></div>
         </div>
         <div style="margin-top:12px">
-          <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);margin-bottom:6px"><span>2 MORE TO AMBASSADOR TIER</span><span>8/10</span></div>
-          <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:80%;background-image:radial-gradient(circle,var(--red,#c47b10) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
+          <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3);margin-bottom:6px"><span data-slot="dash.ref.progressLabel">10 MORE TO AMBASSADOR TIER</span><span data-slot="dash.ref.progress">0/10</span></div>
+          <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="dash.ref.bar" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,var(--red,#c47b10) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
         </div>
       </div>
     </div>

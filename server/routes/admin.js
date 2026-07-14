@@ -40,25 +40,25 @@ const ventureView = (v) => ({
 });
 
 export default function mount(app) {
-  app.get('/api/admin/overview', requireRole('admin'), (req, res, next) => {
+  app.get('/api/admin/overview', requireRole('admin'), async (req, res, next) => {
     try {
-      const members = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
-      const membersThisWeek = db.prepare(
-        "SELECT COUNT(*) AS n FROM users WHERE created_at >= datetime('now','-7 days')").get().n;
-      const treasury = round2(db.prepare(
-        "SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'USDC'").get().s);
-      const volume24h = round2(db.prepare(
-        "SELECT COALESCE(SUM(ABS(delta)),0) AS s FROM ledger WHERE currency = 'USDC' AND created_at >= datetime('now','-1 day')").get().s);
-      const transfers24h = db.prepare(
-        "SELECT COUNT(*) AS n FROM transfers WHERE created_at >= datetime('now','-1 day')").get().n;
-      const kyc = db.prepare("SELECT COUNT(*) AS n FROM users WHERE status = 'review'").get().n;
+      const members = (await db.prepare('SELECT COUNT(*) AS n FROM users').get()).n;
+      const membersThisWeek = (await db.prepare(
+        "SELECT COUNT(*) AS n FROM users WHERE created_at >= datetime('now','-7 days')").get()).n;
+      const treasury = round2((await db.prepare(
+        "SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'USDC'").get()).s);
+      const volume24h = round2((await db.prepare(
+        "SELECT COALESCE(SUM(ABS(delta)),0) AS s FROM ledger WHERE currency = 'USDC' AND created_at >= datetime('now','-1 day')").get()).s);
+      const transfers24h = (await db.prepare(
+        "SELECT COUNT(*) AS n FROM transfers WHERE created_at >= datetime('now','-1 day')").get()).n;
+      const kyc = (await db.prepare("SELECT COUNT(*) AS n FROM users WHERE status = 'review'").get()).n;
 
-      const listingQueue = db.prepare(
-        "SELECT id, name, blurb, status FROM ventures WHERE status = 'pending' ORDER BY created_at ASC, id ASC").all()
+      const listingQueue = (await db.prepare(
+        "SELECT id, name, blurb, status FROM ventures WHERE status = 'pending' ORDER BY created_at ASC, id ASC").all())
         .map((v) => ({ ventureId: v.id, name: v.name, blurb: v.blurb, status: v.status }));
 
       const due = quarterEnd();
-      const payoutQueue = db.prepare(
+      const payoutQueue = (await db.prepare(
         `SELECT v.id, v.name, v.apy,
                 COALESCE(SUM(i.amount), 0) AS raised,
                 COUNT(DISTINCT i.user_id) AS holders
@@ -67,14 +67,14 @@ export default function mount(app) {
          WHERE v.status = 'active'
          GROUP BY v.id
          HAVING raised > 0
-         ORDER BY raised DESC, v.id ASC`).all()
+         ORDER BY raised DESC, v.id ASC`).all())
         .map((v) => ({
           ventureId: v.id, name: v.name, due,
           estTotal: round2((v.raised * v.apy) / 100 / 4), holders: v.holders,
         }));
 
-      const newestMembers = db.prepare(
-        'SELECT id, handle, role, status, created_at FROM users ORDER BY created_at DESC, id DESC LIMIT 5').all()
+      const newestMembers = (await db.prepare(
+        'SELECT id, handle, role, status, created_at FROM users ORDER BY created_at DESC, id DESC LIMIT 5').all())
         .map((u) => ({
           id: u.id, handle: u.handle, role: u.role, memberNo: MEMBER_NO_BASE + u.id,
           joinedAgo: joinedAgo(u.created_at),
@@ -83,9 +83,9 @@ export default function mount(app) {
         }));
 
       // Synthetic but deterministic: derived from row counts, stable between calls.
-      const ledgerRows = db.prepare('SELECT COUNT(*) AS n FROM ledger').get().n;
-      const signers = db.prepare(
-        "SELECT COUNT(*) AS n FROM users WHERE role IN ('manager','admin')").get().n;
+      const ledgerRows = (await db.prepare('SELECT COUNT(*) AS n FROM ledger').get()).n;
+      const signers = (await db.prepare(
+        "SELECT COUNT(*) AS n FROM users WHERE role IN ('manager','admin')").get()).n;
       const network = {
         block: 1842000 + ledgerRows,
         latencyMs: 12 + (ledgerRows % 28),
@@ -101,7 +101,7 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
-  app.get('/api/admin/users', requireRole('admin'), (req, res, next) => {
+  app.get('/api/admin/users', requireRole('admin'), async (req, res, next) => {
     try {
       const select = `SELECT u.*, COALESCE((SELECT SUM(l.delta) FROM ledger l
         WHERE l.user_id = u.id AND l.currency = 'USDC'), 0) AS bal FROM users u`;
@@ -109,17 +109,17 @@ export default function mount(app) {
       if (req.query.q !== undefined && String(req.query.q).trim() !== '') {
         const q = str(req.query.q, { min: 1, max: 60, name: 'q' }).toLowerCase().replace(/^@/, '');
         const like = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
-        rows = db.prepare(
+        rows = await db.prepare(
           `${select} WHERE u.handle LIKE ? ESCAPE '\\' OR u.name LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\'
            ORDER BY u.created_at DESC, u.id DESC LIMIT 100`).all(like, like, like);
       } else {
-        rows = db.prepare(`${select} ORDER BY u.created_at DESC, u.id DESC LIMIT 100`).all();
+        rows = await db.prepare(`${select} ORDER BY u.created_at DESC, u.id DESC LIMIT 100`).all();
       }
       res.json({ users: rows.map((u) => ({ ...publicUser(u), balance: round2(u.bal) })) });
     } catch (e) { next(e); }
   });
 
-  app.patch('/api/admin/users/:id', requireRole('admin'), (req, res, next) => {
+  app.patch('/api/admin/users/:id', requireRole('admin'), async (req, res, next) => {
     try {
       const id = num(req.params.id, { min: 1, int: true, name: 'id' });
       const updates = {};
@@ -127,40 +127,40 @@ export default function mount(app) {
       if (req.body?.status !== undefined) updates.status = oneOf(req.body.status, STATUSES, 'status');
       if (!Object.keys(updates).length) throw new ApiError(400, 'nothing to update');
 
-      const user = tx(() => {
-        const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      const user = await tx(async () => {
+        const target = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
         if (!target) throw new ApiError(404, 'No such user');
         // Last-admin invariant: at least one USABLE admin must remain. Frozen
         // admins are not usable (login refuses them, loadSession revokes their
         // sessions), so only active admins other than the target count.
-        const otherUsableAdmins = () => db.prepare(
-          "SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND status = 'active' AND id != ?").get(id).n;
+        const otherUsableAdmins = async () => (await db.prepare(
+          "SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND status = 'active' AND id != ?").get(id)).n;
         if (updates.role !== undefined && updates.role !== target.role) {
-          if (target.role === 'admin' && otherUsableAdmins() === 0) {
+          if (target.role === 'admin' && await otherUsableAdmins() === 0) {
             throw new ApiError(400, 'Cannot demote the last admin');
           }
           if (id === req.user.id) throw new ApiError(400, 'You cannot change your own role');
-          db.prepare('UPDATE users SET role = ? WHERE id = ?').run(updates.role, id);
+          await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(updates.role, id);
         }
         if (updates.status !== undefined && updates.status !== target.status) {
           const roleNow = updates.role ?? target.role;
-          if (updates.status === 'frozen' && roleNow === 'admin' && otherUsableAdmins() === 0) {
+          if (updates.status === 'frozen' && roleNow === 'admin' && await otherUsableAdmins() === 0) {
             throw new ApiError(400, 'Cannot freeze the last admin');
           }
-          db.prepare('UPDATE users SET status = ? WHERE id = ?').run(updates.status, id);
+          await db.prepare('UPDATE users SET status = ? WHERE id = ?').run(updates.status, id);
           if (updates.status === 'frozen') {
-            db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id); // sign out everywhere
+            await db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id); // sign out everywhere
           }
         }
-        audit(req.user.id, 'admin.user.update', `user:${id}`,
+        await audit(req.user.id, 'admin.user.update', `user:${id}`,
           Object.entries(updates).map(([k, v]) => `${k}=${v}`).join(','));
-        return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        return await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       });
       res.json({ user: publicUser(user) });
     } catch (e) { next(e); }
   });
 
-  app.post('/api/admin/ventures/:id/approve', requireRole('admin'), (req, res, next) => {
+  app.post('/api/admin/ventures/:id/approve', requireRole('admin'), async (req, res, next) => {
     try {
       const id = num(req.params.id, { min: 1, int: true, name: 'id' });
       let managerId;
@@ -168,47 +168,47 @@ export default function mount(app) {
         managerId = num(req.body.managerId, { min: 1, int: true, name: 'managerId' });
       }
 
-      const venture = tx(() => {
-        const v = db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+      const venture = await tx(async () => {
+        const v = await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
         if (!v) throw new ApiError(404, 'No such venture');
         if (v.status !== 'pending') throw new ApiError(400, 'Only pending ventures can be approved');
         if (managerId !== undefined) {
-          const m = db.prepare('SELECT id, role FROM users WHERE id = ?').get(managerId);
+          const m = await db.prepare('SELECT id, role FROM users WHERE id = ?').get(managerId);
           if (!m || !['manager', 'admin'].includes(m.role)) {
             throw new ApiError(400, 'managerId must be an existing manager or admin');
           }
-          db.prepare('UPDATE ventures SET manager_id = ? WHERE id = ?').run(managerId, id);
+          await db.prepare('UPDATE ventures SET manager_id = ? WHERE id = ?').run(managerId, id);
         }
-        db.prepare("UPDATE ventures SET status = 'active' WHERE id = ?").run(id);
-        audit(req.user.id, 'venture.approve', `venture:${id}`,
+        await db.prepare("UPDATE ventures SET status = 'active' WHERE id = ?").run(id);
+        await audit(req.user.id, 'venture.approve', `venture:${id}`,
           managerId !== undefined ? `managerId=${managerId}` : null);
-        return db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+        return await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
       });
       res.json({ venture: ventureView(venture) });
     } catch (e) { next(e); }
   });
 
-  app.post('/api/admin/ventures/:id/reject', requireRole('admin'), (req, res, next) => {
+  app.post('/api/admin/ventures/:id/reject', requireRole('admin'), async (req, res, next) => {
     try {
       const id = num(req.params.id, { min: 1, int: true, name: 'id' });
-      const venture = tx(() => {
-        const v = db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+      const venture = await tx(async () => {
+        const v = await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
         if (!v) throw new ApiError(404, 'No such venture');
         if (v.status !== 'pending') throw new ApiError(400, 'Only pending ventures can be rejected');
-        db.prepare("UPDATE ventures SET status = 'rejected' WHERE id = ?").run(id);
-        audit(req.user.id, 'venture.reject', `venture:${id}`);
-        return db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+        await db.prepare("UPDATE ventures SET status = 'rejected' WHERE id = ?").run(id);
+        await audit(req.user.id, 'venture.reject', `venture:${id}`);
+        return await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
       });
       res.json({ venture: ventureView(venture) });
     } catch (e) { next(e); }
   });
 
-  app.get('/api/admin/audit', requireRole('admin', 'manager'), (req, res, next) => {
+  app.get('/api/admin/audit', requireRole('admin', 'manager'), async (req, res, next) => {
     try {
       const limit = req.query.limit !== undefined
         ? num(req.query.limit, { min: 1, max: 200, int: true, name: 'limit' })
         : 50;
-      const rows = db.prepare(
+      const rows = await db.prepare(
         `SELECT a.id, a.actor_id, a.action, a.subject, a.detail, a.created_at, u.handle AS actor_handle
          FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id
          ORDER BY a.id DESC LIMIT ?`).all(limit);

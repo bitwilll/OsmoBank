@@ -28,59 +28,59 @@ function nextQuarterEnd(from = new Date()) {
 }
 
 /** YTD report aggregates for a user (shared by GET /api/reports and PDF export). */
-function computeReport(uid) {
+async function computeReport(uid) {
   const yearStart = `${new Date().getUTCFullYear()}-01-01`;
-  const ytd = db.prepare(`
+  const ytd = await db.prepare(`
     SELECT COALESCE(SUM(CASE WHEN kind NOT IN ('invest','exit') THEN delta ELSE 0 END), 0) AS netWorth,
            COALESCE(SUM(CASE WHEN kind = 'dividend' THEN delta ELSE 0 END), 0) AS dividends,
            COALESCE(SUM(CASE WHEN kind = 'fee' AND delta < 0 THEN -delta ELSE 0 END), 0) AS fees,
            COALESCE(SUM(CASE WHEN kind = 'reimbursement' THEN 1 ELSE 0 END), 0) AS receipts
     FROM ledger WHERE user_id = ? AND currency = 'USDC' AND created_at >= ?`).get(uid, yearStart);
-  const baseline = db.prepare(`
+  const baseline = (await db.prepare(`
     SELECT COALESCE(SUM(CASE WHEN kind NOT IN ('invest','exit') THEN delta ELSE 0 END), 0) AS b
-    FROM ledger WHERE user_id = ? AND currency = 'USDC' AND created_at < ?`).get(uid, yearStart).b;
+    FROM ledger WHERE user_id = ? AND currency = 'USDC' AND created_at < ?`).get(uid, yearStart)).b;
   const netWorthYtd = round2(ytd.netWorth);
   const netWorthYtdPct = baseline > 0 ? round2((netWorthYtd / baseline) * 100) : (netWorthYtd > 0 ? 100 : 0);
-  const dividendLedger = db.prepare(`
+  const dividendLedger = (await db.prepare(`
     SELECT pi.amount, p.id AS payoutId, p.created_at AS date, v.name AS venture
     FROM payout_items pi JOIN payouts p ON p.id = pi.payout_id JOIN ventures v ON v.id = p.venture_id
-    WHERE pi.user_id = ? AND p.kind = 'dividend' ORDER BY p.created_at DESC, p.id DESC`).all(uid)
+    WHERE pi.user_id = ? AND p.kind = 'dividend' ORDER BY p.created_at DESC, p.id DESC`).all(uid))
     .map((r) => {
       const mm = Number(r.date.slice(5, 7));
       return { venture: r.venture, quarter: `Q${Math.floor((mm - 1) / 3) + 1} ${r.date.slice(0, 4)}`,
         amount: round2(r.amount), status: 'paid', date: r.date, txref: `OSM-PO-${String(r.payoutId).padStart(4, '0')}` };
     });
-  const statements = db.prepare(`
+  const statements = (await db.prepare(`
     SELECT strftime('%Y-%m', created_at) AS month, COUNT(*) AS txCount
-    FROM ledger WHERE user_id = ? GROUP BY month ORDER BY month DESC`).all(uid)
+    FROM ledger WHERE user_id = ? GROUP BY month ORDER BY month DESC`).all(uid))
     .map((r) => ({ month: r.month, txCount: Number(r.txCount), sizeMb: round2(0.03 + Number(r.txCount) * 0.012) }));
   return { netWorthYtd, netWorthYtdPct, dividendsYtd: round2(ytd.dividends), feesYtd: round2(ytd.fees),
     receiptsFiled: Number(ytd.receipts), dividendLedger, statements };
 }
 
 /** Per-venture positions for a user (shared by GET /api/portfolio and edge export). */
-function computePositions(uid) {
-  return db.prepare(`
+async function computePositions(uid) {
+  return Promise.all((await db.prepare(`
     SELECT v.id, v.name, v.sector, v.apy, SUM(i.amount) AS stake
     FROM investments i JOIN ventures v ON v.id = i.venture_id
-    WHERE i.user_id = ? AND i.status = 'active' GROUP BY v.id ORDER BY stake DESC`).all(uid)
-    .map((r) => {
-      const div = db.prepare(`SELECT COALESCE(SUM(pi.amount),0) AS d FROM payout_items pi
+    WHERE i.user_id = ? AND i.status = 'active' GROUP BY v.id ORDER BY stake DESC`).all(uid))
+    .map(async (r) => {
+      const div = (await db.prepare(`SELECT COALESCE(SUM(pi.amount),0) AS d FROM payout_items pi
         JOIN payouts p ON p.id = pi.payout_id WHERE pi.user_id = ? AND p.venture_id = ? AND p.kind = 'dividend'`)
-        .get(uid, r.id).d;
+        .get(uid, r.id)).d;
       const stake = round2(r.stake);
       const valueNow = round2(stake + div);
       return { name: r.name, sector: r.sector, apy: r.apy, stake, dividendsPaid: round2(div),
         valueNow, pl: round2(valueNow - stake), plPct: stake > 0 ? round2((valueNow - stake) / stake * 100) : 0 };
-    });
+    }));
 }
 
 export default function mount(app) {
-  app.get('/api/portfolio', requireAuth, (req, res, next) => {
+  app.get('/api/portfolio', requireAuth, async (req, res, next) => {
     try {
       const uid = req.user.id;
 
-      const posRows = db.prepare(`
+      const posRows = await db.prepare(`
         SELECT v.id AS ventureId, v.name, v.sector, v.apy, SUM(i.amount) AS stake
         FROM investments i JOIN ventures v ON v.id = i.venture_id
         WHERE i.user_id = ? AND i.status = 'active'
@@ -88,7 +88,7 @@ export default function mount(app) {
 
       // Dividends received per venture (from payout records, not ledger, so the
       // attribution to a venture is exact regardless of ledger ref conventions).
-      const divRows = db.prepare(`
+      const divRows = await db.prepare(`
         SELECT p.venture_id AS ventureId, COALESCE(SUM(pi.amount), 0) AS paid
         FROM payout_items pi JOIN payouts p ON p.id = pi.payout_id
         WHERE pi.user_id = ? AND p.kind = 'dividend'
@@ -126,7 +126,7 @@ export default function mount(app) {
       // 12-month series: deployed capital + cumulative dividends, snapshot at
       // each month end, replayed from ledger history. invest/exit rows move
       // cash <-> deployed (so -delta), dividends add value.
-      const monthly = db.prepare(`
+      const monthly = await db.prepare(`
         SELECT strftime('%Y-%m', created_at) AS ym,
                SUM(CASE WHEN kind IN ('invest','exit') THEN -delta
                         WHEN kind = 'dividend' THEN delta ELSE 0 END) AS v
@@ -169,8 +169,8 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
-  app.get('/api/reports', requireAuth, (req, res, next) => {
-    try { res.json(computeReport(req.user.id)); } catch (e) { next(e); }
+  app.get('/api/reports', requireAuth, async (req, res, next) => {
+    try { res.json(await computeReport(req.user.id)); } catch (e) { next(e); }
   });
 
   // Spreadsheet formula-injection guard for CSV text fields.
@@ -193,13 +193,13 @@ export default function mount(app) {
   const stamp = (u) => `${u.name} · @${u.handle} · Member #${memberNo(u.id)}`;
 
   // Account statement — CSV (raw ledger) or PDF (formatted).  ?format=csv|pdf
-  app.get('/api/reports/export', requireAuth, (req, res, next) => {
+  app.get('/api/reports/export', requireAuth, async (req, res, next) => {
     try {
       const uid = req.user.id;
       const format = (req.query.format || 'csv').toLowerCase();
 
       if (format === 'pdf') {
-        const rep = computeReport(uid);
+        const rep = await computeReport(uid);
         const pdf = new Pdf({ title: 'OsmoBank — Account Statement' });
         pdf.text(stamp(req.user), { gray: 0.4 });
         pdf.text(`Generated ${new Date().toISOString().slice(0, 10)} · ${req.user.role.toUpperCase()}`, { size: 8, gray: 0.5 });
@@ -221,7 +221,7 @@ export default function mount(app) {
         return sendPdf(res, 'osmobank-statement', pdf.build());
       }
 
-      const rows = db.prepare(`
+      const rows = await db.prepare(`
         SELECT id, created_at, currency, kind, delta, ref_type, ref_id, memo
         FROM ledger WHERE user_id = ? ORDER BY created_at DESC, id DESC`).all(uid);
       sendCsv(res, 'osmobank-ledger',
@@ -231,9 +231,9 @@ export default function mount(app) {
   });
 
   // Investor's Edge report — positions/P&L.  ?format=csv|pdf
-  app.get('/api/portfolio/export', requireAuth, (req, res, next) => {
+  app.get('/api/portfolio/export', requireAuth, async (req, res, next) => {
     try {
-      const positions = computePositions(req.user.id);
+      const positions = await computePositions(req.user.id);
       const deployed = round2(positions.reduce((s, p) => s + p.stake, 0));
       const currentValue = round2(positions.reduce((s, p) => s + p.valueNow, 0));
       const format = (req.query.format || 'csv').toLowerCase();

@@ -354,7 +354,13 @@ export async function hydrate(root, ctx) {
     });
 
     ctx.setAction('demoTransfer', () => reviewAndSign(root, ctx));
-    ctx.setAction('openSwap', () => ctx.toast('SWAPS AT TREASURY RATES · DEMO'));
+    // Recipient QR scanning needs a device-camera capture flow that isn't built
+    // yet. This control previously fired the global demoCard action, which toasted
+    // the unrelated, fabricated "CARD ADDED TO YOUR VAULT · DEMO". Report honestly.
+    ctx.setAction('scanTo', () => ctx.toast('QR SCANNING NOT AVAILABLE YET · PASTE OR TYPE THE ADDRESS'));
+    // Token swap has no backend endpoint yet (reported in sharedNeeds). Keep the
+    // cross-sell card but stop advertising a working "DEMO" swap.
+    ctx.setAction('openSwap', () => ctx.toast('TOKEN SWAP NOT AVAILABLE YET'));
 
     root.dataset.hydrated = '1';
   }

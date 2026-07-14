@@ -247,3 +247,37 @@ Screen hydrator modules live in `public/js/screens/<screen>.js` and export
 ### export — server/routes/portfolio.js
 - `GET /api/reports/export?format=csv|pdf` → CSV (raw ledger) or PDF (formatted account statement)
 - `GET /api/portfolio/export?format=csv|pdf` → CSV or PDF of the Investor's Edge positions/P&L
+
+## Clean-slate accounts, deposits & activity (added post-v1)
+New members start with a **genuine zero balance** — no demo "founding balance", positions, activity, goals, or referral stats. Screens show real data or honest empty states. Members fund themselves:
+- `POST /api/deposits` (auth) `{amount(0.01–250000), currency?(USDC|OSM), method?(bank|card|wire)}` → posts a `deposit` ledger row → `{deposit:{id,currency,amount,method}, balance}`. Counts toward net worth exactly like the retired `seed` kind.
+- `GET /api/activity` (auth) → `{activity:[{id,kind,currency,delta,memo,createdAt}]}` — last 8 ledger movements, newest first (dashboard feed).
+
+## Forgot / reset passphrase — SOC-style controls (added post-v1)
+- `POST /api/auth/forgot` (no auth, rate-limited) `{identifier}` → **always** `{ok:true}` regardless of whether the account exists (no user enumeration; response timing is equalised across both branches). If it exists and no token was issued within a 60s per-account cooldown, a single-use token is minted; only its **SHA-256 hash** is stored (`password_resets`). In **production the raw token is never logged** (only a `user:<id>` reference is) and is delivered out of band by **email over SMTP** (`server/lib/mailer.js` + `server/lib/smtp.js`; provider-agnostic, configured via `SMTP_*` env — see `.env.example`); in **local dev** (`OSMO_SECURE_COOKIES` unset) the response also carries `{devToken, devResetUrl}` and the link is logged, so the in-browser flow works without a mail server. Prior tokens are **not** invalidated on mint (so an attacker can't grief a victim's live token); they are cleared on a completed reset or passphrase change.
+- `POST /api/auth/reset` (no auth, rate-limited) `{token, next(≥12)}` → validates a live, unused, unexpired token inside a transaction, rotates the passphrase (scrypt), marks the token used (single-use), and **revokes every session** for that user. Does not sign the user in. Invalid/expired/reused token → 400.
+
+## Sessions & single-active-session (added post-v1)
+`sessions` gained `last_seen`, `user_agent`, `ip` (idempotent migrations). `loadSession` sets `req.sessionToken` and heartbeats `last_seen` (≤ once/60s). A session is "live" if seen within `LIVE_WINDOW_SEC` (120s).
+- `GET /api/me` now also returns `session: {total, others, othersLive}` — count of the caller's other sessions and how many are currently live. The landing page shows the **Dashboard** button only when signed in and `othersLive === 0`; otherwise it warns and offers to sign the other devices out. The lock is enforced in the **client router `guard()`** (not just by hiding the button): member screens redirect to `home` while `othersLive > 0`.
+- `GET /api/sessions` (auth) → `{sessions:[{current, userAgent, ip, createdAt, lastSeen, live}]}` (a "your devices" view).
+- `POST /api/auth/logout-all` (auth) → revokes every **other** session, keeping the current one → `{ok, revoked}`.
+- `POST /api/me/passphrase` still rotates the passphrase and re-issues only the caller's session (all others dropped).
+
+## Mobile-wallet provisioning — Apple / Google / Samsung Pay (added post-v1)
+Simulated issuer side of push-provisioning (no real Visa VTS / Mastercard MDES or native app; responses carry `simulated:true`). The wallet receives a DPAN-style **token reference**, never the real PAN.
+- `GET /api/cards` now attaches `wallets:[{platform, wallet, tokenRef, status, addedAt}]` per card (scoped to the caller).
+- `POST /api/cards/:id/provision` (own card) `{platform(apple|google|samsung), device?}` → mints/refreshes the token reference (unique per card+platform; blocked if the card is frozen) → `{platform, wallet, tokenRef, card:{last4,brand}, simulated:true}`.
+- `DELETE /api/cards/:id/provision/:platform` (own card) → removes the card from that wallet → `{ok}`. Deleting a card also drops its wallet provisions.
+
+## Support / Contact-us (added post-v1) — server/routes/support.js
+- `POST /api/support` (public, rate-limited) `{category(account|payments|security|password_reset|troubleshooting|other), message, email?, handle?}` → raises a ticket → `{ok, ref}`. If signed in, the caller's user/email/handle are attached automatically.
+- `GET /api/admin/support?status=open|closed|all&limit=` (admin/manager) → `{tickets:[{id,userId,userHandle,email,category,message,source,status,createdAt}], openCount}`.
+- `PATCH /api/admin/support/:id` (admin/manager) `{status(open|closed)}` → `{ok}`.
+- `POST /api/auth/forgot` also raises a **system** ticket (`category:'password_reset', source:'system'`) so operators see every reset request. Rendered as an injected inbox panel on the admin console.
+
+## Self-service account recovery (added post-v1) — server/routes/auth.js
+No email required — prove ownership, then receive a single-use `resetToken` for `POST /api/auth/reset`.
+- `POST /api/auth/recover/card` `{identifier, pan, exp, cvv}` → verifies the full card number + expiry + CVV against a stored OsmoBank card (per-account lockout via the shared `recover:` key) → `{ok, resetToken}`.
+- `POST /api/auth/recover/challenge` `{}` → `{nonce}` (single-use, 5-min TTL, stored in `webauthn_challenges` with purpose `recover`).
+- `POST /api/auth/recover/seed` `{identifier, nonce, signature}` → the client signs the nonce with the wallet's Ethereum key (`wallet.signChallenge`); the server `verifyMessage`s it and checks the recovered address is one anchored to the account (`wallets` where `chain='eth'`, registered at signup) → `{ok, resetToken}`. The mnemonic never leaves the browser.

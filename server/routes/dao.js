@@ -22,13 +22,13 @@ const UPDATES = [
   { date: '2026-06-28', title: 'Raise opened to all members', body: 'Backed by proposal OSM-042. Dividends begin Q4 2026 at 11.1% target APY.' },
 ];
 
-function osmSupply() {
-  const row = db.prepare("SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'OSM'").get();
+async function osmSupply() {
+  const row = await db.prepare("SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'OSM'").get();
   return row?.s ?? 0;
 }
 
-function voteTotals(proposal) {
-  const agg = db.prepare(
+async function voteTotals(proposal) {
+  const agg = await db.prepare(
     `SELECT COALESCE(SUM(CASE WHEN support = 1 THEN power END), 0) AS forPower,
             COALESCE(SUM(CASE WHEN support = 0 THEN power END), 0) AS againstPower,
             COUNT(*) AS voters
@@ -41,13 +41,13 @@ function voteTotals(proposal) {
   };
 }
 
-function proposalView(proposal, userId) {
-  const { forPower, againstPower, voters } = voteTotals(proposal);
+async function proposalView(proposal, userId) {
+  const { forPower, againstPower, voters } = await voteTotals(proposal);
   const total = forPower + againstPower;
   // Effective supply floors at the participating power so the synthetic baseline
   // (which is not part of the real OSM ledger) can never push the ratio above 100%.
-  const supply = Math.max(osmSupply(), total);
-  const mine = db.prepare('SELECT support FROM votes WHERE proposal_id = ? AND user_id = ?')
+  const supply = Math.max(await osmSupply(), total);
+  const mine = await db.prepare('SELECT support FROM votes WHERE proposal_id = ? AND user_id = ?')
     .get(proposal.id, userId);
   return {
     id: proposal.id,
@@ -76,23 +76,23 @@ function timeLeft(endsAt) {
   };
 }
 
-function openFundraiser() {
-  return db.prepare("SELECT * FROM fundraisers WHERE status = 'open' ORDER BY id LIMIT 1").get();
+async function openFundraiser() {
+  return await db.prepare("SELECT * FROM fundraisers WHERE status = 'open' ORDER BY id LIMIT 1").get();
 }
 
-function fundraiserView(f) {
-  const venture = db.prepare('SELECT name FROM ventures WHERE id = ?').get(f.venture_id);
+async function fundraiserView(f) {
+  const venture = await db.prepare('SELECT name FROM ventures WHERE id = ?').get(f.venture_id);
   // The backing proposal: the live proposal that names the venture, falling back
   // to the most recent live proposal (no FK exists in the schema).
   let proposal = venture
-    ? db.prepare("SELECT * FROM proposals WHERE status = 'live' AND title LIKE '%' || ? || '%' ORDER BY id DESC LIMIT 1").get(venture.name)
+    ? await db.prepare("SELECT * FROM proposals WHERE status = 'live' AND title LIKE '%' || ? || '%' ORDER BY id DESC LIMIT 1").get(venture.name)
     : null;
   if (!proposal) {
-    proposal = db.prepare("SELECT * FROM proposals WHERE status = 'live' ORDER BY datetime(created_at) DESC, id DESC LIMIT 1").get();
+    proposal = await db.prepare("SELECT * FROM proposals WHERE status = 'live' ORDER BY datetime(created_at) DESC, id DESC LIMIT 1").get();
   }
   let proposalForPct = null;
   if (proposal) {
-    const { forPower, againstPower } = voteTotals(proposal);
+    const { forPower, againstPower } = await voteTotals(proposal);
     const total = forPower + againstPower;
     proposalForPct = total > 0 ? round2((forPower / total) * 100) : 0;
   }
@@ -118,72 +118,72 @@ function fundraiserView(f) {
 }
 
 export default function mount(app) {
-  app.get('/api/proposals', requireAuth, (req, res, next) => {
+  app.get('/api/proposals', requireAuth, async (req, res, next) => {
     try {
-      const rows = db.prepare(
+      const rows = await db.prepare(
         `SELECT * FROM proposals
           ORDER BY CASE WHEN status = 'live' THEN 0 ELSE 1 END,
                    datetime(COALESCE(ends_at, created_at)) DESC, id DESC`).all();
-      res.json({ proposals: rows.map((p) => proposalView(p, req.user.id)) });
+      res.json({ proposals: await Promise.all(rows.map((p) => proposalView(p, req.user.id))) });
     } catch (e) { next(e); }
   });
 
-  app.post('/api/proposals/:id/vote', requireAuth, (req, res, next) => {
+  app.post('/api/proposals/:id/vote', requireAuth, async (req, res, next) => {
     try {
       const id = num(req.params.id, { int: true, min: 1, name: 'id' });
       if (typeof req.body?.support !== 'boolean') throw new ApiError(400, 'support must be true or false');
       const support = req.body.support ? 1 : 0;
 
-      const proposal = tx(() => {
-        const p = db.prepare('SELECT * FROM proposals WHERE id = ?').get(id);
+      const proposal = await tx(async () => {
+        const p = await db.prepare('SELECT * FROM proposals WHERE id = ?').get(id);
         if (!p) throw new ApiError(404, 'Proposal not found');
         if (p.status !== 'live') throw new ApiError(400, 'Voting on this proposal has closed');
-        const power = balance(req.user.id, 'OSM');
+        const power = await balance(req.user.id, 'OSM');
         if (power <= 0) throw new ApiError(400, 'You need OSM voting power to vote');
-        db.prepare(
+        await db.prepare(
           `INSERT INTO votes (proposal_id, user_id, support, power) VALUES (?,?,?,?)
              ON CONFLICT (proposal_id, user_id)
              DO UPDATE SET support = excluded.support, power = excluded.power, created_at = datetime('now')`)
           .run(p.id, req.user.id, support, power);
-        audit(req.user.id, 'proposal.vote', `proposal:${p.id}`, support ? 'for' : 'against');
+        await audit(req.user.id, 'proposal.vote', `proposal:${p.id}`, support ? 'for' : 'against');
         return p;
       });
 
-      res.json({ proposal: proposalView(proposal, req.user.id) });
+      res.json({ proposal: await proposalView(proposal, req.user.id) });
     } catch (e) { next(e); }
   });
 
-  app.get('/api/fundraiser', requireAuth, (req, res, next) => {
+  app.get('/api/fundraiser', requireAuth, async (req, res, next) => {
     try {
-      const f = openFundraiser();
+      const f = await openFundraiser();
       if (!f) throw new ApiError(404, 'No open fundraiser');
-      res.json({ fundraiser: fundraiserView(f) });
+      res.json({ fundraiser: await fundraiserView(f) });
     } catch (e) { next(e); }
   });
 
-  app.post('/api/fundraiser/contribute', requireAuth, (req, res, next) => {
+  app.post('/api/fundraiser/contribute', requireAuth, async (req, res, next) => {
     try {
       const amount = round2(num(req.body?.amount, { min: 0.01, max: 1e9, name: 'amount' }));
 
-      const fundraiser = tx(() => {
-        const f = openFundraiser();
+      const fundraiser = await tx(async () => {
+        const f = await openFundraiser();
         if (!f) throw new ApiError(404, 'No open fundraiser');
         if (amount < f.min_amount) throw new ApiError(400, `Minimum contribution is ${f.min_amount} USDC`);
-        if (balance(req.user.id, 'USDC') < amount) throw new ApiError(400, 'Insufficient USDC balance');
+        if (await balance(req.user.id, 'USDC') < amount) throw new ApiError(400, 'Insufficient USDC balance');
 
-        const firstTime = !db.prepare(
+        const firstTime = !(await db.prepare(
           "SELECT 1 FROM ledger WHERE user_id = ? AND kind = 'contribution' AND ref_type = 'fundraiser' AND ref_id = ? LIMIT 1")
-          .get(req.user.id, f.id);
-        db.prepare(
+          .get(req.user.id, f.id));
+        await db.prepare(
           "INSERT INTO ledger (user_id, currency, delta, kind, ref_type, ref_id, memo) VALUES (?,'USDC',?,'contribution','fundraiser',?,?)")
           .run(req.user.id, -amount, f.id, f.title);
-        db.prepare('UPDATE fundraisers SET raised = ?, backers = backers + ? WHERE id = ?')
+        await db.prepare('UPDATE fundraisers SET raised = ?, backers = backers + ? WHERE id = ?')
           .run(round2(f.raised + amount), firstTime ? 1 : 0, f.id);
-        audit(req.user.id, 'fundraiser.contribute', `fundraiser:${f.id}`, String(amount));
-        return db.prepare('SELECT * FROM fundraisers WHERE id = ?').get(f.id);
+        await audit(req.user.id, 'fundraiser.contribute', `fundraiser:${f.id}`, String(amount));
+        return await db.prepare('SELECT * FROM fundraisers WHERE id = ?').get(f.id);
       });
 
-      res.json({ fundraiser: fundraiserView(fundraiser), balance: balance(req.user.id, 'USDC') });
+      res.json({ fundraiser: await fundraiserView(fundraiser), balance: await balance(req.user.id, 'USDC') });
     } catch (e) { next(e); }
   });
 }

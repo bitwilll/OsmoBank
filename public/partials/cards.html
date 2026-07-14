@@ -46,19 +46,25 @@
       </div>
 
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:22px">
+        <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">account_balance_wallet</span>ADD TO MOBILE WALLET</div>
+        <div data-slot="cards.walletStatus" style="font-size:13px;color:var(--mut,#757575);line-height:1.55;margin-top:10px">Add this card to Apple&nbsp;Pay, Google&nbsp;Pay, or Samsung&nbsp;Wallet for tap-to-pay on your phone.</div>
+        <div data-slot="cards.walletBtns" style="display:flex;flex-wrap:wrap;gap:9px;margin-top:14px"></div>
+      </div>
+
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:22px">
         <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">monitoring</span><span data-slot="cards.spendTitle">JULY SPEND · $1,284.60</span></div>
         <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
           <div>
             <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px"><span style="display:flex;align-items:center;gap:8px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#f5a623;display:inline-block"></span>Groceries</span><span data-slot="cards.catGroceries" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">$412</span></div>
-            <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:32%;background-image:radial-gradient(circle,#f5a623 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
+            <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="cards.barGroceries" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,#f5a623 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
           </div>
           <div>
             <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px"><span style="display:flex;align-items:center;gap:8px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#38bdd4;display:inline-block"></span>Transit</span><span data-slot="cards.catTransit" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">$186</span></div>
-            <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:15%;background-image:radial-gradient(circle,#38bdd4 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
+            <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="cards.barTransit" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,#38bdd4 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
           </div>
           <div>
             <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px"><span style="display:flex;align-items:center;gap:8px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#8752f3;display:inline-block"></span>Dining</span><span data-slot="cards.catDining" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">$343</span></div>
-            <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:27%;background-image:radial-gradient(circle,#8752f3 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
+            <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div data-slot="cards.barDining" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,#8752f3 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);padding-top:8px;border-top:1px dotted var(--dt,#d9d9d9)"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">receipt_long</span>RECEIPTS AUTO-FILED TO REPORTS</div>
         </div>
@@ -130,34 +136,6 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
             <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562)">2% BACK IN OSM</span>
             <div data-action="giftBuy" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3">Buy</div>
-          </div>
-        </div>
-      </div>
-      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;overflow:hidden">
-        <div style="height:86px;background:#2e4a15;display:flex;align-items:center;justify-content:center;gap:9px;color:#e9f6d9"><span style="font-family:'Material Symbols Sharp';font-size:22px;line-height:1">shopping_basket</span><span style="font-family:'Doto',monospace;font-weight:900;font-size:17px;letter-spacing:.04em">CASCADE GROCERS</span></div>
-        <div style="padding:16px 18px">
-          <div style="display:flex;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px">
-            <span style="border:1px solid var(--ink,#0a0a0a);border-radius:100px;padding:5px 12px;font-weight:600">$50</span>
-            <span style="border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:5px 12px;color:var(--mut,#757575);cursor:pointer" class="obh-2">$100</span>
-            <span style="border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:5px 12px;color:var(--mut,#757575);cursor:pointer" class="obh-2">$200</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562)">4% BACK IN OSM</span>
-            <div data-action="demoGift" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3">Buy</div>
-          </div>
-        </div>
-      </div>
-      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;overflow:hidden">
-        <div style="height:86px;background:#3d3d3d;display:flex;align-items:center;justify-content:center;gap:9px;color:#efefef"><span style="font-family:'Material Symbols Sharp';font-size:22px;line-height:1">menu_book</span><span style="font-family:'Doto',monospace;font-weight:900;font-size:17px;letter-spacing:.04em">NORTHWIND BOOKS</span></div>
-        <div style="padding:16px 18px">
-          <div style="display:flex;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11.5px">
-            <span style="border:1px solid var(--ink,#0a0a0a);border-radius:100px;padding:5px 12px;font-weight:600">$15</span>
-            <span style="border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:5px 12px;color:var(--mut,#757575);cursor:pointer" class="obh-2">$30</span>
-            <span style="border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:5px 12px;color:var(--mut,#757575);cursor:pointer" class="obh-2">$75</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562)">2% BACK IN OSM</span>
-            <div data-action="demoGift" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;padding:8px 16px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer" class="obh-3">Buy</div>
           </div>
         </div>
       </div>

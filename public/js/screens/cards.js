@@ -85,6 +85,7 @@ async function fill(root, ctx) {
 
   fillHolder(root, ctx);
   fillPanel(root);
+  fillWallet(root, ctx);
   fillSpend(root, ctx, data);
 }
 
@@ -115,19 +116,113 @@ function fillPanel(root) {
 
 function fillSpend(root, ctx, data) {
   const month = new Date().toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+  const spend = Number(data.spend || 0);
   const title = ctx.slot(root, 'cards.spendTitle');
-  if (title) title.textContent = `${month} SPEND · ${ctx.fmt.usd2(data.spend || 0)}`;
+  if (title) title.textContent = `${month} SPEND · ${ctx.fmt.usd2(spend)}`;
 
   const bd = data.spendBreakdown || {};
   const rows = [
-    ['cards.catGroceries', bd.groceries],
-    ['cards.catTransit', bd.transit],
-    ['cards.catDining', bd.dining],
+    ['cards.catGroceries', 'cards.barGroceries', bd.groceries],
+    ['cards.catTransit', 'cards.barTransit', bd.transit],
+    ['cards.catDining', 'cards.barDining', bd.dining],
   ];
-  for (const [name, val] of rows) {
-    const cell = ctx.slot(root, name);
-    if (cell) cell.textContent = ctx.fmt.usd(val || 0);
+  for (const [cellName, barName, val] of rows) {
+    const amount = Number(val || 0);
+    const cell = ctx.slot(root, cellName);
+    if (cell) cell.textContent = ctx.fmt.usd(amount);
+    // Bar fill = this category's share of month spend. A $0 account has nothing
+    // to spend, so the bar stays empty rather than showing a fabricated width.
+    const bar = ctx.slot(root, barName);
+    if (bar) {
+      const share = spend > 0 ? Math.max(0, Math.min(100, (amount / spend) * 100)) : 0;
+      bar.style.width = `${share}%`;
+    }
   }
+}
+
+// ---- mobile-wallet provisioning (Apple / Google / Samsung Pay) ---------------
+const WALLET_META = {
+  apple: { label: 'Apple Pay', icon: 'phone_iphone' },
+  google: { label: 'Google Pay', icon: 'android' },
+  samsung: { label: 'Samsung Wallet', icon: 'smartphone' },
+};
+const WALLET_BTN = 'padding:11px 16px;display:flex;align-items:center;gap:7px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer';
+const WALLET_BTN_ON = 'padding:11px 16px;display:flex;align-items:center;gap:7px;border:1px solid var(--grn,#17a562);color:var(--grn,#17a562);border-radius:100px;font-size:13px;font-weight:600;cursor:pointer';
+
+// Best-effort guess so the native wallet for this device is offered first. All
+// three remain available — the user may be provisioning for another device.
+function detectPlatform() {
+  const ua = navigator.userAgent || '';
+  if (/SamsungBrowser|SM-[A-Z0-9]/.test(ua)) return 'samsung';
+  if (/iPhone|iPad|iPod|Macintosh|Mac OS X/.test(ua)) return 'apple';
+  if (/Android/.test(ua)) return 'google';
+  return null;
+}
+
+function fillWallet(root, ctx) {
+  const box = ctx.slot(root, 'cards.walletBtns');
+  const status = ctx.slot(root, 'cards.walletStatus');
+  if (!box) return;
+  box.textContent = '';
+  const c = primaryCard;
+  if (!c) {
+    if (status) status.textContent = 'Issue a card to add it to a mobile wallet.';
+    return;
+  }
+  const provisioned = new Set((c.wallets || []).map((w) => w.platform));
+  const detected = detectPlatform();
+  const order = [detected, 'apple', 'google', 'samsung'].filter((v, i, a) => v && a.indexOf(v) === i);
+
+  for (const key of order) {
+    const meta = WALLET_META[key];
+    const on = provisioned.has(key);
+    const b = btn(on ? WALLET_BTN_ON : WALLET_BTN, '');
+    b.appendChild(el('span', "font-family:'Material Symbols Sharp';font-size:16px;line-height:1", on ? 'check_circle' : meta.icon));
+    b.appendChild(el('span', '', on ? `In ${meta.label}` : `Add to ${meta.label}`));
+    b.addEventListener('click', () => (on ? removeFromWallet(key, ctx, root) : addToWallet(key, ctx, root)));
+    box.appendChild(b);
+  }
+  if (status) {
+    status.textContent = provisioned.size
+      ? `In ${[...provisioned].map((p) => WALLET_META[p].label).join(', ')}. Tap a wallet to remove it.`
+      : 'Add this card to Apple Pay, Google Pay, or Samsung Wallet for tap-to-pay on your phone.';
+  }
+}
+
+async function addToWallet(platform, ctx, root) {
+  if (!primaryCard) return;
+  try {
+    const device = (navigator.platform || 'this device').slice(0, 60);
+    const r = await ctx.api.post(`/api/cards/${primaryCard.id}/provision`, { platform, device });
+    await fill(root, ctx);
+    showWalletResult(ctx, r);
+  } catch (e) { ctx.errToast(e); }
+}
+
+async function removeFromWallet(platform, ctx, root) {
+  if (!primaryCard) return;
+  try {
+    await ctx.api.del(`/api/cards/${primaryCard.id}/provision/${platform}`);
+    await fill(root, ctx);
+    ctx.toast(`REMOVED FROM ${WALLET_META[platform].label.toUpperCase()}`);
+  } catch (e) { ctx.errToast(e); }
+}
+
+function showWalletResult(ctx, r) {
+  const m = ctx.buildModal(`ADDED TO ${String(r.wallet || 'WALLET').toUpperCase()}`, 'account_balance_wallet');
+  m.body.appendChild(el('div', 'font-size:13.5px;line-height:1.6;color:var(--ink,#0a0a0a)',
+    `Your OsmoCard ending ${r.card?.last4 || '••••'} is now available in ${r.wallet}.`));
+  m.body.appendChild(monoLabel('DEVICE ACCOUNT NUMBER (TOKEN)'));
+  m.body.appendChild(el('div', "font-family:'IBM Plex Mono',monospace;font-size:15px;letter-spacing:.14em;color:var(--ink,#0a0a0a)", r.tokenRef || ''));
+  m.body.appendChild(el('div', 'font-size:12px;color:var(--mut,#757575);line-height:1.6;margin-top:8px',
+    'Your real card number is never shared with the wallet — this device-specific token stands in and can be revoked without reissuing your card.'));
+  if (r.simulated) {
+    m.body.appendChild(el('div', 'font-size:11.5px;color:var(--fnt,#a3a3a3);line-height:1.6;margin-top:12px;border-top:1px dotted var(--dt2,#c6c6c6);padding-top:10px',
+      'Sandbox provisioning. Live Apple / Google / Samsung Pay enrolment completes inside the OsmoBank mobile app, which passes this token to the platform via issuer↔network push-provisioning (Visa VTS / Mastercard MDES).'));
+  }
+  const done = btn(btnCss, 'Done');
+  done.addEventListener('click', () => m.close());
+  m.body.appendChild(done);
 }
 
 // ---- card actions ------------------------------------------------------------

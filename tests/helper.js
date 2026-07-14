@@ -12,7 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export async function bootServer() {
   const port = 20000 + Math.floor(Math.random() * 20000);
   const dbPath = join(mkdtempSync(join(tmpdir(), 'osmo-')), 'test.db');
-  const child = spawn(process.execPath, ['--experimental-sqlite', 'server/index.js'], {
+  const child = spawn(process.execPath, ['server/index.js'], {
     cwd: ROOT,
     env: { ...process.env, PORT: String(port), OSMO_DB: dbPath, OSMO_ADMIN_PASS: 'admin-test-pass-123', OSMO_MANAGER_PASS: 'manager-test-pass-123' },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -78,6 +78,14 @@ export async function registerMember(base, overrides = {}) {
     ...overrides,
   });
   if (r.status !== 201) throw new Error(`register failed: ${r.status} ${JSON.stringify(r.json)}`);
+  // Accounts now start empty (no demo "founding balance"). Tests assume a
+  // starting balance, so fund it via the real Add-Funds deposit endpoint —
+  // this reproduces the former seed (12450 USDC + 10 OSM) and exercises deposits.
+  // Pass overrides.fund = false to keep the account at a true zero balance.
+  if (overrides.fund !== false) {
+    await c.post('/api/deposits', { currency: 'USDC', amount: 12450 });
+    await c.post('/api/deposits', { currency: 'OSM', amount: 10 });
+  }
   return { c, user: r.json.user };
 }
 

@@ -1,7 +1,8 @@
 /* Goals screen hydrator.
  * Cards from GET /api/goals; edit modal PATCHes (addSaved debits USDC),
- * delete refunds saved balance; "+ New goal" POSTs; auto-save rule toggles
- * stay visual-only (demo). All server data goes through textContent. */
+ * delete refunds saved balance; "+ New goal" POSTs. A fresh $0 account has
+ * no goals, so we reveal an honest empty state instead of demo cards.
+ * All server data goes through textContent. */
 
 const CATEGORIES = ['TRAVEL', 'SAFETY NET', 'HOME', 'SAVINGS'];
 const CATEGORY_ICONS = {
@@ -55,7 +56,6 @@ function etaLabel(g) {
 export async function hydrate(root, ctx) {
   if (!root.dataset.hydrated) {
     ctx.setAction('demoGoal', () => openNewGoal(root, ctx));
-    ctx.setAction('demoRule', (pill) => toggleRule(pill, ctx));
     root.dataset.hydrated = '1';
   }
   await fill(root, ctx);
@@ -72,6 +72,10 @@ async function fill(root, ctx) {
   const cards = ctx.list(root, 'goals.cards');
   if (!cards) return;
   cards.clear();
+
+  const empty = ctx.slot(root, 'goals.empty');
+  if (empty) empty.style.display = goals.length ? 'none' : '';
+
   for (const g of goals) {
     const row = cards.add();
     ctx.slot(row, 'icon').textContent = goalIcon(g);
@@ -206,21 +210,4 @@ function openNewGoal(root, ctx) {
   });
   m.body.appendChild(create);
   name.focus();
-}
-
-// ---- auto-save rules (visual demo toggles) --------------------------------------
-function toggleRule(pill, ctx) {
-  if (!pill || !pill.firstElementChild) return;
-  const on = pill.dataset.on !== undefined
-    ? pill.dataset.on === '1'
-    : (pill.getAttribute('style') || '').includes('--grn');
-  const next = !on;
-  pill.dataset.on = next ? '1' : '0';
-  pill.style.background = next
-    ? 'var(--grn,#17a562)'
-    : 'color-mix(in srgb,var(--inv,#fff) 25%,transparent)';
-  const knob = pill.firstElementChild;
-  knob.style.left = next ? 'auto' : '3px';
-  knob.style.right = next ? '3px' : 'auto';
-  ctx.toast('RULE UPDATED · DEMO');
 }

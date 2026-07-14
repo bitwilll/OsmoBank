@@ -17,9 +17,23 @@
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
       <div data-action="toggleTheme" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;color:var(--mut,#757575);cursor:pointer;border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:6px 12px" class="obh-1"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">contrast</span><span data-text="themeLabel"></span></div>
-      <div data-action="goLogin" role="button" tabindex="0" style="font-size:14px;font-weight:600;cursor:pointer;padding:9px 18px;border-radius:100px;border:1px solid var(--dt,#d9d9d9)" class="obh-2">Log in</div>
-      <div data-action="goSignup" role="button" tabindex="0" style="font-size:14px;font-weight:600;cursor:pointer;padding:9px 20px;border-radius:100px;background:var(--ink,#0a0a0a);color:var(--inv,#ffffff)" class="obh-3">Get started</div>
+      <!-- Auth-aware controls; home.js shows exactly the right set based on session state -->
+      <div data-slot="home.login" data-action="goLogin" role="button" tabindex="0" style="font-size:14px;font-weight:600;cursor:pointer;padding:9px 18px;border-radius:100px;border:1px solid var(--dt,#d9d9d9)" class="obh-2">Log in</div>
+      <div data-slot="home.signup" data-action="goSignup" role="button" tabindex="0" style="font-size:14px;font-weight:600;cursor:pointer;padding:9px 20px;border-radius:100px;background:var(--ink,#0a0a0a);color:var(--inv,#ffffff)" class="obh-3">Get started</div>
+      <div data-slot="home.dash" data-action="goDash" role="button" tabindex="0" style="display:none;font-size:14px;font-weight:600;cursor:pointer;padding:9px 20px;border-radius:100px;background:var(--ink,#0a0a0a);color:var(--inv,#ffffff)" class="obh-3">Open dashboard<span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1;vertical-align:-3px;margin-left:6px">arrow_outward</span></div>
+      <div data-slot="home.signout" data-action="signOut" role="button" tabindex="0" style="display:none;font-size:14px;font-weight:600;cursor:pointer;padding:9px 18px;border-radius:100px;border:1px solid var(--dt,#d9d9d9)" class="obh-2">Sign out</div>
     </div>
+  </div>
+
+  <!-- Concurrent-session guard: shown only when this member is also live on another
+       device. The dashboard stays hidden until they are the sole active session. -->
+  <div data-slot="home.sessionWarn" style="display:none;align-items:center;flex-wrap:wrap;gap:12px 18px;padding:12px clamp(20px,4vw,48px);background:var(--reds,#fdecea);border-bottom:1px solid var(--reds,#f0b9b5)">
+    <span style="font-family:'Material Symbols Sharp';font-size:19px;line-height:1;color:var(--red,#e0342b)">devices</span>
+    <div style="flex:1;min-width:220px;font-size:13px;line-height:1.5;color:var(--ink,#0a0a0a)">
+      <b>Your account is active on another device.</b>
+      <span style="color:var(--mut,#757575)"> For your security the dashboard is locked until this is the only signed-in session.</span>
+    </div>
+    <div data-action="signOutOthers" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;font-weight:600;cursor:pointer;padding:9px 16px;border-radius:100px;background:var(--red,#e0342b);color:#fff">SIGN OUT OTHER DEVICES</div>
   </div>
 
   <div style="border-bottom:1px solid var(--hr,#e4e4e4);background:var(--sf,#ffffff);overflow:hidden">

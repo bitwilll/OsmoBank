@@ -1,5 +1,9 @@
-/* Dashboard hydrator — total assets, next dividend, live vote, asset table. */
+/* Dashboard hydrator — total assets, next dividend, live vote, asset table,
+ * your ventures, recent activity, goals, card, referral. Everything below is
+ * the member's real data (or an honest empty state); no demo figures. */
 
+// Reference spot prices used only to value on-chain holdings a member actually
+// holds (a brand-new account holds nothing, so these never fabricate a balance).
 const RATES = { BTC: 60684, ETH: 3530, SOL: 37.84, OSM: 0.4182 };
 
 const shortAddr = (a) => (a ? `${a.slice(0, 4)}…${a.slice(-3)}` : '');
@@ -22,25 +26,37 @@ function quarterOf(iso) {
   return Number.isNaN(d.getTime()) ? '' : `Q${Math.floor(d.getMonth() / 3) + 1}`;
 }
 
-export async function hydrate(root, ctx) {
-  const { api, fmt, wallet, slot } = ctx;
+// Ledger-kind → activity row presentation.
+const ACT = {
+  deposit: { icon: 'account_balance', color: 'var(--grn,#17a562)', title: 'Deposit' },
+  transfer_in: { icon: 'call_received', color: 'var(--grn,#17a562)', title: 'Received' },
+  transfer_out: { icon: 'north_east', color: 'var(--ink,#0a0a0a)', title: 'Sent' },
+  invest: { icon: 'diamond', color: 'var(--ink,#0a0a0a)', title: 'Invested' },
+  exit: { icon: 'logout', color: 'var(--grn,#17a562)', title: 'Exited venture' },
+  dividend: { icon: 'payments', color: 'var(--grn,#17a562)', title: 'Dividend' },
+  reimbursement: { icon: 'receipt_long', color: 'var(--grn,#17a562)', title: 'Reimbursement' },
+  giftcard: { icon: 'card_giftcard', color: 'var(--ink,#0a0a0a)', title: 'Gift card' },
+  adjust: { icon: 'flag', color: 'var(--ink,#0a0a0a)', title: 'Goal' },
+  fee: { icon: 'receipt_long', color: 'var(--red,#c47b10)', title: 'Fee' },
+};
 
-  if (!root.dataset.hydrated) {
-    ctx.setAction('demoSwap', () => ctx.toast('SWAP ROUTED VIA OSMO DEX · DEMO'));
-    root.dataset.hydrated = '1';
-  }
+export async function hydrate(root, ctx) {
+  const { api, fmt, wallet, slot, nav } = ctx;
 
   // Guard against overlapping hydrations (screen left + re-entered mid-fetch).
   const seq = (root.__dashSeq = (root.__dashSeq || 0) + 1);
 
-  let meData, portfolio, proposals, walletsRes, reports;
+  let meData, portfolio, proposals, walletsRes, reports, activityRes, goalsRes, cardsRes;
   try {
-    [meData, portfolio, proposals, walletsRes, reports] = await Promise.all([
+    [meData, portfolio, proposals, walletsRes, reports, activityRes, goalsRes, cardsRes] = await Promise.all([
       ctx.refreshMe().then((m) => m || ctx.me()),
       api.get('/api/portfolio'),
       api.get('/api/proposals'),
       api.get('/api/wallets'),
       api.get('/api/reports').catch(() => null), // dividendsYtd; optional
+      api.get('/api/activity').catch(() => null),
+      api.get('/api/goals').catch(() => null),
+      api.get('/api/cards').catch(() => null),
     ]);
   } catch (e) {
     ctx.errToast(e);
@@ -119,10 +135,10 @@ export async function hydrate(root, ctx) {
     }
     slot(row, 'dash.asset.bal').textContent = a.bal;
     slot(row, 'dash.asset.value').textContent = fmt.usd(a.value);
+    // We do not track a 24h price series, so we show "—" rather than a fabricated change.
     const chg = slot(row, 'dash.asset.chg');
-    chg.textContent = a.chg;
-    chg.style.color = a.chg.startsWith('+') ? 'var(--grn,#17a562)'
-      : a.chg.startsWith('−') ? 'var(--red,#c47b10)' : 'var(--fnt,#a3a3a3)';
+    chg.textContent = '—';
+    chg.style.color = 'var(--fnt,#a3a3a3)';
     const share = total > 0 ? (a.value / total) * 100 : 0;
     const fill = slot(row, 'dash.asset.meterFill');
     fill.style.width = `${Math.max(0, Math.min(100, share))}%`;
@@ -132,11 +148,11 @@ export async function hydrate(root, ctx) {
 
   addRow({
     color: '#2775ca', name: 'USD Coin', sub: 'SPENDING',
-    bal: fmt.usd2(usdc).slice(1), value: usdc, chg: '0.0',
+    bal: fmt.usd2(usdc).slice(1), value: usdc,
   });
   addRow({
     color: '#c47b10', name: 'OSM', badge: 'GOVERNANCE',
-    bal: fmt.num(osm), value: osm * RATES.OSM, chg: '+4.6',
+    bal: fmt.num(osm), value: osm * RATES.OSM,
   });
 
   if (wallet.isUnlocked()) {
@@ -150,11 +166,80 @@ export async function hydrate(root, ctx) {
     const eth = Number(chains?.[ethKey] ?? 0);
     addRow({
       color: '#f7931a', name: 'Bitcoin', sub: shortAddr(addrs[btcKey]) || wallet.CHAINS[btcKey].symbol,
-      bal: btc.toFixed(5), value: btc * RATES.BTC, chg: '+3.1',
+      bal: btc.toFixed(5), value: btc * RATES.BTC,
     });
     addRow({
       color: '#627eea', name: 'Ethereum', sub: shortAddr(addrs[ethKey]) || wallet.CHAINS[ethKey].symbol,
-      bal: eth.toFixed(4), value: eth * RATES.ETH, chg: '+1.8',
+      bal: eth.toFixed(4), value: eth * RATES.ETH,
     });
   }
+
+  // ---- your ventures --------------------------------------------------------
+  fillList(ctx, root, 'dash.ventures', 'dash.venturesEmpty', positions.slice(0, 6), (row, p) => {
+    slot(row, 'dash.venture.sector').textContent = String(p.sector || 'VENTURE').toUpperCase();
+    slot(row, 'dash.venture.name').textContent = p.name;
+    slot(row, 'dash.venture.apy').textContent = Number(p.apy || 0).toFixed(1);
+    slot(row, 'dash.venture.stake').textContent = `STAKE ${fmt.usd(p.stake)}`;
+    const pl = slot(row, 'dash.venture.pl');
+    pl.textContent = fmt.signedUsd(p.pl || 0);
+    pl.style.color = (p.pl || 0) >= 0 ? 'var(--grn,#17a562)' : 'var(--red,#c47b10)';
+    row.addEventListener('click', () => nav('ventures'));
+  });
+
+  // ---- recent activity ------------------------------------------------------
+  fillList(ctx, root, 'dash.activity', 'dash.activityEmpty', activityRes?.activity || [], (row, a) => {
+    const meta = ACT[a.kind] || { icon: 'swap_horiz', color: 'var(--mut,#757575)', title: a.kind };
+    const ic = slot(row, 'dash.act.icon');
+    ic.textContent = meta.icon;
+    ic.style.color = meta.color;
+    slot(row, 'dash.act.title').textContent = meta.title;
+    slot(row, 'dash.act.sub').textContent =
+      `${fmt.date(a.createdAt)}${a.memo ? ' · ' + String(a.memo).toUpperCase() : ''}`;
+    const amt = slot(row, 'dash.act.amount');
+    const pos = a.delta >= 0;
+    const abs = Math.abs(a.delta);
+    amt.textContent = a.currency === 'USDC'
+      ? `${pos ? '+' : '−'}${fmt.usd2(abs)}`
+      : `${pos ? '+' : '−'}${fmt.num(abs)} ${a.currency}`;
+    amt.style.color = pos ? 'var(--grn,#17a562)' : 'var(--ink,#0a0a0a)';
+  });
+
+  // ---- goals ----------------------------------------------------------------
+  fillList(ctx, root, 'dash.goals', 'dash.goalsEmpty', (goalsRes?.goals || []).slice(0, 3), (row, g) => {
+    slot(row, 'dash.goal.name').textContent = g.name;
+    const pct = Math.max(0, Math.min(100, Number(g.pct || 0)));
+    slot(row, 'dash.goal.pct').textContent = `${Math.round(pct)}%`;
+    slot(row, 'dash.goal.bar').style.width = `${pct}%`;
+    slot(row, 'dash.goal.amt').textContent = `${fmt.usd(g.saved)} / ${fmt.usd(g.target)}`;
+  });
+
+  // ---- card preview ---------------------------------------------------------
+  const primary = (cardsRes?.cards || [])[0];
+  if (primary) {
+    slot(root, 'dash.card.last4').textContent = primary.last4;
+    slot(root, 'dash.card.holder').textContent =
+      `${String(meData?.user?.name || '—').toUpperCase()} · ${String(primary.kind || 'virtual').toUpperCase()}`;
+  }
+  const spend = Number(cardsRes?.spend || 0);
+  slot(root, 'dash.card.spend').textContent = `${spend > 0 ? '−' : ''}${fmt.usd2(spend)} · THIS MONTH`;
+
+  // ---- referral (real link; stats are genuinely zero until a program exists) --
+  const handle = meData?.user?.handle || 'you';
+  slot(root, 'dash.ref.link').textContent = `osmo.money/r/${handle}`;
+}
+
+/** Populate a data-list, or reveal its empty-state sibling when there are no rows. */
+function fillList(ctx, root, listName, emptyName, items, fill) {
+  const box = ctx.list(root, listName);
+  const empty = ctx.slot(root, emptyName);
+  if (!box) return;
+  box.clear();
+  if (!items.length) {
+    box.el.style.display = 'none';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  box.el.style.display = '';
+  if (empty) empty.style.display = 'none';
+  items.forEach((item) => fill(box.add(), item));
 }

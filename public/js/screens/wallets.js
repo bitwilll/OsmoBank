@@ -335,11 +335,12 @@ function copyChainAddress(ctx, chain) {
 }
 
 // ---- chain-card fills --------------------------------------------------------
-function setSub(sub, usdText, chgText) {
+// We do not track a 24h price series, so we show a muted dash rather than a
+// fabricated percentage (mirrors dash.js's "—" 24h treatment).
+function setSub(sub, usdText) {
   sub.textContent = '';
   sub.append(document.createTextNode(`${usdText} · `));
-  const g = el('span', 'color:var(--grn,#17a562)', chgText);
-  sub.append(g);
+  sub.append(el('span', 'color:var(--fnt,#a3a3a3)', '— 24H'));
 }
 
 function fillChainCardLocked(root, ctx, prefix, tag) {
@@ -471,7 +472,7 @@ async function refill(root, ctx) {
   const osmSub = ctx.slot(root, 'wallets.osm.sub');
   osmSub.textContent = '';
   osmSub.append(document.createTextNode(`${ctx.fmt.usd(osm * OSM)} · `));
-  osmSub.append(el('span', 'color:var(--grn,#17a562)', '+4.6% 24H'));
+  osmSub.append(el('span', 'color:var(--fnt,#a3a3a3)', '— 24H')); // no 24h price series → dash
   osmSub.append(document.createTextNode(' · VOTING POWER'));
 
   // USD Coin card (ledger spending balance)
@@ -512,9 +513,9 @@ async function refill(root, ctx) {
   const btc = Number(chains?.[ctx.wallet.BTC_CHAIN] ?? 0);
   const eth = Number(chains?.[ctx.wallet.ETH_CHAIN] ?? 0);
   ctx.slot(root, 'wallets.btc.bal').textContent = btc.toFixed(5);
-  setSub(ctx.slot(root, 'wallets.btc.sub'), ctx.fmt.usd(btc * BTC), '+3.1% 24H');
+  setSub(ctx.slot(root, 'wallets.btc.sub'), ctx.fmt.usd(btc * BTC));
   ctx.slot(root, 'wallets.eth.bal').textContent = eth.toFixed(4);
-  setSub(ctx.slot(root, 'wallets.eth.sub'), ctx.fmt.usd(eth * ETH), '+1.8% 24H');
+  setSub(ctx.slot(root, 'wallets.eth.sub'), ctx.fmt.usd(eth * ETH));
 }
 
 // ---- hydrator ----------------------------------------------------------------

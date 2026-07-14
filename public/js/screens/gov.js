@@ -34,11 +34,16 @@ async function fill(root, ctx) {
   const power = ctx.me()?.balances?.OSM ?? 0;
   put('gov.power', `${fmt.num(power)} OSM`);
 
+  // Treasury total/allocation are platform-level figures with no member-facing
+  // endpoint, so we show a dash rather than a fabricated number (see sharedNeeds).
+  put('gov.treasury', '—');
+
   const { proposals } = await ctx.api.get('/api/proposals');
 
   // ---- live proposal card ----
   liveProposal = proposals.find((p) => p.status === 'live') || null;
   const p = liveProposal;
+  const actions = ctx.slot(root, 'gov.voteActions');
   if (p) {
     put('gov.liveMeta', `${p.code} · LIVE${endsIn(p.endsAt)}`);
     put('gov.quorum', `QUORUM ${fmt.pct(p.quorumPct, 0)} · ${p.quorumReached ? 'REACHED ✓' : 'NOT REACHED'}`);
@@ -48,6 +53,18 @@ async function fill(root, ctx) {
     if (meter) meter.style.width = `${clampPct(p.forPct)}%`;
     put('gov.forPct', `FOR ${fmt.pct(p.forPct, 0)}`);
     put('gov.tally', `· AGAINST ${fmt.pct(p.againstPct, 0)} · ${fmt.num(p.voters ?? 0)} VOTERS`);
+    if (actions) actions.style.display = 'flex';
+  } else {
+    // No proposal is open — show an honest empty state instead of the seeded demo.
+    put('gov.liveMeta', 'NO LIVE PROPOSAL');
+    put('gov.quorum', '');
+    put('gov.title', 'No proposals are live right now');
+    put('gov.blurb', 'When a member proposal opens for a vote it will appear here — check back soon.');
+    const meter = ctx.slot(root, 'gov.meterFor');
+    if (meter) meter.style.width = '0%';
+    put('gov.forPct', `FOR ${fmt.pct(0, 0)}`);
+    put('gov.tally', `· AGAINST ${fmt.pct(0, 0)} · ${fmt.num(0)} VOTERS`);
+    if (actions) actions.style.display = 'none';
   }
   const chip = ctx.slot(root, 'gov.yourVote');
   if (chip) {
@@ -62,9 +79,13 @@ async function fill(root, ctx) {
 
   // ---- recent proposals ----
   const rows = ctx.list(root, 'gov.recent');
+  const recentEmpty = ctx.slot(root, 'gov.recentEmpty');
   if (rows) {
     rows.clear();
-    for (const r of proposals.filter((x) => x.status !== 'live').slice(0, 5)) {
+    const recent = proposals.filter((x) => x.status !== 'live').slice(0, 5);
+    rows.el.style.display = recent.length ? '' : 'none';
+    if (recentEmpty) recentEmpty.style.display = recent.length ? 'none' : '';
+    for (const r of recent) {
       const row = rows.add();
       const status = String(r.status || '').toUpperCase();
       const putRow = (name, text) => {
@@ -103,10 +124,6 @@ export async function hydrate(root, ctx) {
     root.dataset.hydrated = '1';
     ctx.setAction('demoVote', (el) => castVote(root, ctx, el?.dataset?.support !== 'false'));
     ctx.setAction('govReadFull', () => ctx.toast('PROPOSAL TEXT · IPFS MIRROR · DEMO'));
-    ctx.setAction('demoExport', () => {
-      window.open('/api/reports/export', '_blank');
-      ctx.toast('TREASURY REPORT Q2 · CSV EXPORTED');
-    });
   }
   try {
     await fill(root, ctx);

@@ -249,4 +249,27 @@ export async function hydrate(root, ctx) {
       }
     }
   }
+
+  // ---- roadmaps ----------------------------------------------------------------
+  // No endpoint exposes per-venture milestone timelines, so there is nothing we
+  // can render truthfully — always show the honest empty state (never the old
+  // hardcoded Helios/Nova cards). A roadmaps endpoint (see sharedNeeds) would
+  // populate the edge.roadmaps template card + edge.rmMilestones timeline.
+  fillList(ctx, root, 'edge.roadmaps', 'edge.roadmapsEmpty', [], () => {});
+}
+
+/** Populate a data-list, or reveal its empty-state sibling when there are no rows. */
+function fillList(ctx, root, listName, emptyName, items, fill) {
+  const box = ctx.list(root, listName);
+  const empty = ctx.slot(root, emptyName);
+  if (!box) return;
+  box.clear();
+  if (!items.length) {
+    box.el.style.display = 'none';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  box.el.style.display = '';
+  if (empty) empty.style.display = 'none';
+  items.forEach((item) => fill(box.add(), item));
 }

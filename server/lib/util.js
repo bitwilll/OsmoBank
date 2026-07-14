@@ -1,5 +1,8 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { db } from '../db.js';
+
+/** SHA-256 hex — used to store reset tokens as a non-reversible digest. */
+export const sha256hex = (s) => createHash('sha256').update(String(s)).digest('hex');
 
 export class ApiError extends Error {
   constructor(status, message) {
@@ -43,11 +46,25 @@ export function verifyPass(passphrase, stored) {
 
 // ---- sessions ------------------------------------------------------------
 const SESSION_DAYS = 30;
+// A session counts as "live" (actively in use on some device right now) if it
+// was seen within this window. Used for single-active-session detection.
+export const LIVE_WINDOW_SEC = 120;
 
-export function createSession(res, userId) {
+/** Short, PII-light fingerprint of the requesting device, for the security view. */
+export function clientMeta(req) {
+  const ua = (req.headers['user-agent'] || '').slice(0, 200) || null;
+  // req.ip is undefined without trust proxy; fall back to the socket address.
+  const ip = (req.ip || req.socket?.remoteAddress || '').slice(0, 64) || null;
+  return { ua, ip };
+}
+
+export async function createSession(res, userId, req = null) {
   const token = randomBytes(32).toString('hex');
-  db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,datetime('now', ?))")
-    .run(token, userId, `+${SESSION_DAYS} days`);
+  const { ua, ip } = req ? clientMeta(req) : { ua: null, ip: null };
+  await db.prepare(
+    `INSERT INTO sessions (token, user_id, expires_at, last_seen, user_agent, ip)
+     VALUES (?,?,datetime('now', ?),datetime('now'),?,?)`)
+    .run(token, userId, `+${SESSION_DAYS} days`, ua, ip);
   setSessionCookie(res, token);
   return token;
 }
@@ -79,9 +96,9 @@ export function setSessionCookie(res, token, clear = false) {
   appendCookie(res, cookieString(SESS_COOKIE, token, { maxAge: SESSION_DAYS * 86400, clear }));
 }
 
-export function destroySession(req, res) {
+export async function destroySession(req, res) {
   const token = readCookie(req, SESS_COOKIE);
-  if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  if (token) await db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
   setSessionCookie(res, '', true);
 }
 
@@ -100,22 +117,85 @@ export function publicUser(u) {
 }
 
 /** Attach req.user when a valid session cookie is present (never rejects). */
-export function loadSession(req, res, next) {
-  const token = readCookie(req, SESS_COOKIE);
-  if (token && /^[0-9a-f]{64}$/.test(token)) {
-    const row = db.prepare(
-      `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token = ? AND s.expires_at > datetime('now')`).get(token);
-    if (row) {
-      if (row.status === 'frozen') {
-        db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
-        setSessionCookie(res, '', true);
-      } else {
-        req.user = row;
+export async function loadSession(req, res, next) {
+  try {
+    const token = readCookie(req, SESS_COOKIE);
+    if (token && /^[0-9a-f]{64}$/.test(token)) {
+      const row = await db.prepare(
+        `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.token = ? AND s.expires_at > datetime('now')`).get(token);
+      if (row) {
+        if (row.status === 'frozen') {
+          await db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+          setSessionCookie(res, '', true);
+        } else {
+          req.user = row;
+          req.sessionToken = token;
+          // Heartbeat: refresh last_seen at most once a minute so liveness stays
+          // current without a DB write on every request.
+          await db.prepare(
+            `UPDATE sessions SET last_seen = datetime('now')
+             WHERE token = ? AND (last_seen IS NULL OR last_seen < datetime('now','-60 seconds'))`)
+            .run(token);
+        }
       }
     }
-  }
+  } catch { /* auth load never rejects — continue unauthenticated */ }
   next();
+}
+
+/**
+ * Summary of a member's sessions for single-active-session logic.
+ * NOTE (accepted limitation): `othersLive` counts only sessions seen within
+ * LIVE_WINDOW_SEC, so a dormant (idle) stolen session is not flagged. `others`
+ * exposes the raw count for a stricter UI; a full fix (new-device alerts +
+ * shorter idle-session lifetime) is a product feature beyond this change set.
+ * The primary theft defences remain the SameSite=Strict/HttpOnly cookie,
+ * reset-revokes-all, and logout-all.
+ */
+export async function sessionStatus(userId, currentToken) {
+  const rows = await db.prepare(
+    `SELECT token, last_seen FROM sessions
+     WHERE user_id = ? AND expires_at > datetime('now')`).all(userId);
+  const liveCutoff = Date.now() - LIVE_WINDOW_SEC * 1000;
+  let others = 0, othersLive = 0;
+  for (const r of rows) {
+    if (r.token === currentToken) continue;
+    others += 1;
+    // last_seen is a UTC 'YYYY-MM-DD HH:MM:SS' string; append Z to parse as UTC.
+    const seen = r.last_seen ? Date.parse(r.last_seen.replace(' ', 'T') + 'Z') : 0;
+    if (seen >= liveCutoff) othersLive += 1;
+  }
+  return { total: rows.length, others, othersLive };
+}
+
+/** List a member's active sessions (current one flagged) for the security view. */
+export async function listSessions(userId, currentToken) {
+  const liveCutoff = Date.now() - LIVE_WINDOW_SEC * 1000;
+  const rows = await db.prepare(
+    `SELECT token, user_agent, ip, created_at, last_seen FROM sessions
+     WHERE user_id = ? AND expires_at > datetime('now')
+     ORDER BY last_seen DESC`).all(userId);
+  return rows.map((r) => {
+    const seen = r.last_seen ? Date.parse(r.last_seen.replace(' ', 'T') + 'Z') : 0;
+    return {
+      current: r.token === currentToken,
+      userAgent: r.user_agent || null,
+      ip: r.ip || null,
+      createdAt: r.created_at,
+      lastSeen: r.last_seen || null,
+      live: seen >= liveCutoff,
+    };
+  });
+}
+
+/** Revoke every session for a user except (optionally) the current one. */
+export async function revokeOtherSessions(userId, keepToken) {
+  return (await db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?')
+    .run(userId, keepToken || '')).changes;
+}
+export async function revokeAllSessions(userId) {
+  return (await db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)).changes;
 }
 
 export function requireAuth(req, _res, next) {

@@ -1,7 +1,7 @@
 import express from 'express';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import './db.js';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { initDb } from './db.js';
 import { ApiError, loadSession } from './lib/util.js';
 import mountAuth from './routes/auth.js';
 import mountWallets from './routes/wallets.js';
@@ -12,13 +12,16 @@ import mountDao from './routes/dao.js';
 import mountAdmin from './routes/admin.js';
 import mountSecurity from './routes/security.js';
 import mountCards from './routes/cards.js';
+import mountSupport from './routes/support.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8471);
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', false);
+// Behind Vercel's proxy, trust one hop so req.ip / req.secure reflect the real
+// client (via X-Forwarded-*). Locally we take the socket address directly.
+app.set('trust proxy', process.env.VERCEL ? 1 : false);
 
 app.use(express.json({ limit: '64kb' }));
 
@@ -75,6 +78,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// Ensure schema (+ seed) is applied before any request touches the DB. initDb()
+// is memoised, so this awaits once per instance and is a no-op afterward — which
+// is exactly what a serverless cold start needs.
+let dbReady = false;
+app.use((req, res, next) => {
+  if (dbReady) return next();
+  initDb().then(() => { dbReady = true; next(); }).catch(next);
+});
+
 app.use(loadSession);
 
 mountAuth(app);
@@ -86,6 +98,7 @@ mountDao(app);
 mountAdmin(app);
 mountSecurity(app);
 mountCards(app);
+mountSupport(app);
 
 app.use('/api', (_req, _res, next) => next(new ApiError(404, 'Not found')));
 
@@ -99,6 +112,13 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ error: err instanceof ApiError || status < 500 ? err.message : 'Internal error' });
 });
 
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`OsmoBank listening on http://127.0.0.1:${PORT}`);
-});
+// On Vercel the app is imported by api/index.js and served as a function — no
+// listen there. Only bind a port when this file is run directly (local / tests).
+const runDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (runDirectly) {
+  initDb()
+    .then(() => app.listen(PORT, '127.0.0.1', () => console.log(`OsmoBank listening on http://127.0.0.1:${PORT}`)))
+    .catch((e) => { console.error('DB init failed:', e); process.exit(1); });
+}
+
+export default app;

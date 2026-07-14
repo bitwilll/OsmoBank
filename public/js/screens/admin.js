@@ -68,6 +68,13 @@ async function load(root, ctx) {
   put('admin.members', fmt.num(d.members));
   put('admin.membersWeek', `+${fmt.num(d.membersThisWeek)} THIS WEEK`);
   put('admin.treasury', fmt.usd(d.treasury));
+  // We don't receive a treasury month-to-date series, so we can't compute the
+  // change truthfully — show a dash rather than a fabricated percentage.
+  const mtd = ctx.slot(root, 'admin.treasuryMtd');
+  if (mtd) {
+    mtd.textContent = '— MTD';
+    mtd.style.color = 'var(--fnt,#a3a3a3)';
+  }
   put('admin.volume24h', fmt.usd(d.volume24h));
   put('admin.transfers24h', `${fmt.num(d.transfers24h)} TRANSFERS`);
 
@@ -96,6 +103,8 @@ async function load(root, ctx) {
         const icon = ctx.slot(row, 'icon');
         if (icon) icon.textContent = iconFor(`${v.name} ${v.blurb}`);
         ctx.slot(row, 'title').textContent = `${v.name} — ${shortBlurb(v.blurb)}`;
+        const sub = ctx.slot(row, 'sub');
+        if (sub) sub.textContent = `STATUS · ${String(v.status || 'pending').toUpperCase()}`;
         const approve = row.querySelector('[data-action="demoApprove"]');
         if (approve) approve.dataset.vid = String(v.ventureId);
       }
@@ -104,6 +113,8 @@ async function load(root, ctx) {
       const icon = ctx.slot(row, 'icon');
       if (icon) icon.textContent = 'inbox';
       ctx.slot(row, 'title').textContent = 'No ventures awaiting review';
+      const sub = ctx.slot(row, 'sub');
+      if (sub) sub.textContent = '';
       row.querySelectorAll('[data-action]').forEach((b) => { b.style.display = 'none'; });
     }
   }
@@ -121,7 +132,7 @@ async function load(root, ctx) {
         const qLabel = quarterOf(q.due);
         ctx.slot(row, 'title').textContent =
           `${q.name}${qLabel ? ` ${qLabel}` : ''} · ${fmt.usd(q.estTotal)} to ${fmt.num(q.holders)} holders`;
-        ctx.slot(row, 'sub').textContent = `DUE ${fmt.date(q.due)} · SIGNERS 2/3`;
+        ctx.slot(row, 'sub').textContent = `DUE ${fmt.date(q.due)}`;
         const btn = row.querySelector('[data-action="demoPayout"]');
         if (btn) {
           btn.dataset.vid = String(q.ventureId);
@@ -358,6 +369,68 @@ function renderResults(container, users, ctx, root, rerun) {
   }
 }
 
+// ---- support inbox (injected panel) -----------------------------------------
+const CAT_LABEL = {
+  password_reset: 'PASSWORD RESET', troubleshooting: 'TROUBLESHOOTING', account: 'ACCOUNT',
+  payments: 'PAYMENTS', security: 'SECURITY', other: 'OTHER',
+};
+
+async function renderSupport(root, ctx) {
+  let panel = root.querySelector('[data-support-inbox]');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.setAttribute('data-support-inbox', '1');
+    panel.style.cssText = 'max-width:1180px;margin:8px auto 48px;padding:0 clamp(16px,4vw,40px);box-sizing:border-box';
+    root.appendChild(panel);
+  }
+  let data;
+  try { data = await ctx.api.get('/api/admin/support'); } catch { return; }
+  panel.textContent = '';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px 22px';
+  const head = document.createElement('div');
+  head.style.cssText = "display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:6px";
+  const ic = document.createElement('span');
+  ic.style.cssText = "font-family:'Material Symbols Sharp';font-size:16px;line-height:1";
+  ic.textContent = 'support_agent';
+  head.append(ic, document.createTextNode(`SUPPORT INBOX · ${data.openCount || 0} OPEN`));
+  card.appendChild(head);
+
+  const tickets = data.tickets || [];
+  if (!tickets.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:13px;color:var(--mut,#757575);padding:10px 0';
+    empty.textContent = 'No open tickets.';
+    card.appendChild(empty);
+  }
+  for (const tk of tickets) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px dotted var(--dt2,#c6c6c6)';
+    const body = document.createElement('div');
+    body.style.cssText = 'flex:1;min-width:0';
+    const meta = document.createElement('div');
+    meta.style.cssText = "font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:var(--fnt,#a3a3a3);margin-bottom:4px";
+    const who = tk.userHandle ? `@${stripAt(tk.userHandle)}` : (tk.email || 'anonymous');
+    meta.textContent = `#${tk.id} · ${CAT_LABEL[tk.category] || String(tk.category).toUpperCase()} · ${tk.source === 'system' ? 'SYSTEM' : 'USER'} · ${who}`;
+    const msg = document.createElement('div');
+    msg.style.cssText = 'font-size:13.5px;line-height:1.5;color:var(--ink,#0a0a0a);word-break:break-word';
+    msg.textContent = tk.message; // textContent → server text can't inject markup
+    body.append(meta, msg);
+    const btn = document.createElement('div');
+    btn.setAttribute('role', 'button'); btn.tabIndex = 0;
+    btn.style.cssText = "font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;font-weight:600;cursor:pointer;border:1px solid var(--dt,#d9d9d9);border-radius:100px;padding:6px 12px;flex:0 0 auto;color:var(--mut,#757575)";
+    btn.textContent = 'CLOSE';
+    btn.addEventListener('click', async () => {
+      try { await ctx.api.patch(`/api/admin/support/${tk.id}`, { status: 'closed' }); ctx.toast(`TICKET #${tk.id} CLOSED`); await renderSupport(root, ctx); }
+      catch (e) { ctx.errToast(e); }
+    });
+    row.append(body, btn);
+    card.appendChild(row);
+  }
+  panel.appendChild(card);
+}
+
 // ---- entry ------------------------------------------------------------------
 export async function hydrate(root, ctx) {
   if (!root.dataset.hydrated) {
@@ -376,4 +449,5 @@ export async function hydrate(root, ctx) {
   }
 
   await load(root, ctx);
+  await renderSupport(root, ctx);
 }

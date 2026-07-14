@@ -157,8 +157,8 @@ test('CSV export returns only the caller ledger as text/csv', async () => {
   assert.ok(m.res.headers.get('content-disposition').includes('.csv'));
   const memberLines = m.text.trim().split(/\r?\n/);
   assert.equal(memberLines[0], 'id,date,currency,kind,amount,refType,refId,memo');
-  assert.equal(memberLines.length, 3); // header + USDC seed + OSM seed
-  assert.ok(m.text.includes('seed'));
+  assert.equal(memberLines.length, 3); // header + USDC deposit + OSM deposit
+  assert.ok(m.text.includes('deposit'));
   assert.ok(!m.text.includes('invest'), 'must not leak other users rows');
 
   const g = await fetchCsv(manager);

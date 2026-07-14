@@ -75,8 +75,10 @@ public/            no-build frontend — the design markup, byte-faithful
 server/
   index.js         express bootstrap: CSP, CSRF origin check, sessions
   db.js            node:sqlite schema + deterministic seed
-  routes/*.js      auth, wallets, ventures, portfolio, money, dao, admin
-  lib/util.js      validators, scrypt, sessions, rate limiting
+  routes/*.js      auth, wallets, ventures, portfolio, money, dao, admin, cards
+  lib/util.js      validators, scrypt, sessions, rate limiting, lockout
+  lib/mailer.js    provider-agnostic email (password-reset links)
+  lib/smtp.js      zero-dependency SMTP client (implicit TLS / STARTTLS / AUTH)
 tests/             node:test suites per module (real server, temp DB)
 docs/CONTRACT.md   binding schema/API/slot contract
 ```
@@ -84,3 +86,13 @@ docs/CONTRACT.md   binding schema/API/slot contract
 Design source: `OsmoBank App.dc.html` (claude.ai/design project
 5c85fa15…). The original static demo behaviors are preserved wherever a
 feature is intentionally demo-only.
+
+## Email (password reset)
+
+Reset delivery uses standard SMTP, so it works with **any provider** and sends
+to **any recipient domain**. Copy `.env.example` to `.env` and set either a
+`SMTP_SERVICE` preset (`gmail`, `hotmail`, `outlook`, `yahoo`, `icloud`,
+`sendgrid`, `ses`, …) or an explicit `SMTP_HOST`/`SMTP_PORT`, plus
+`SMTP_USER`/`SMTP_PASS` and `MAIL_FROM`. Gmail/Yahoo/iCloud need an
+**app-specific password**. With nothing configured, local dev reveals the reset
+link in-browser and the server never logs the token in production.

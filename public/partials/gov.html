@@ -26,7 +26,7 @@
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div>
         <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(30px,4vw,42px);letter-spacing:.02em">GOVERNANCE</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);margin-top:6px;letter-spacing:.1em">ONE TOKEN, ONE VOICE · 48,201 MEMBER-OWNERS</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mut,#757575);margin-top:6px;letter-spacing:.1em">ONE TOKEN, ONE VOICE</div>
       </div>
       <div style="margin-left:auto;background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:10px 20px;display:flex;align-items:center;gap:10px">
         <span style="font-family:'Material Symbols Sharp';font-size:17px;line-height:1;color:var(--red,#c47b10)">how_to_vote</span>
@@ -47,7 +47,7 @@
           <div style="flex:1;min-width:200px;position:relative;height:10px;background-image:radial-gradient(circle,color-mix(in srgb,var(--inv,#fff) 28%,transparent) 1.8px,transparent 2.3px);background-size:10px 10px"><div data-slot="gov.meterFor" style="position:absolute;left:0;top:0;bottom:0;width:68%;background-image:radial-gradient(circle,var(--grn,#17a562) 1.8px,transparent 2.3px);background-size:10px 10px"></div></div>
           <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px"><span data-slot="gov.forPct" style="color:var(--grn,#17a562)">FOR 68%</span> <span data-slot="gov.tally" style="opacity:.45">· AGAINST 32% · 14,882 VOTERS</span></div>
         </div>
-        <div style="display:flex;gap:9px;margin-top:20px;flex-wrap:wrap">
+        <div data-slot="gov.voteActions" style="display:flex;gap:9px;margin-top:20px;flex-wrap:wrap">
           <div data-action="demoVote" data-support="true" role="button" tabindex="0" style="flex:1;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">thumb_up</span>Vote FOR</div>
           <div data-action="demoVote" data-support="false" role="button" tabindex="0" style="flex:1;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 0;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-10"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">thumb_down</span>Against</div>
           <div data-action="govReadFull" role="button" tabindex="0" style="display:flex;align-items:center;justify-content:center;padding:13px 18px;border:1px dotted color-mix(in srgb,var(--inv,#fff) 35%,transparent);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-10">Read full text</div>
@@ -64,24 +64,11 @@
               <div data-slot="row.chip" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--grn,#17a562);border:1px solid color-mix(in srgb,var(--grn,#17a562) 35%,transparent);border-radius:100px;padding:4px 12px">PASSED 81%</div>
             </div>
           </div>
+          <div data-slot="gov.recentEmpty" style="display:none;padding:20px 0 16px;border-top:1px dotted var(--dt,#d9d9d9);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fnt,#a3a3a3)">No past proposals yet.</div>
         </div>
         <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:22px;padding:22px">
-          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">account_balance</span>TREASURY · $284.0M</div>
-          <div style="display:flex;flex-direction:column;gap:11px;margin-top:14px">
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span style="font-weight:600">Venture stakes</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">46%</span></div>
-              <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:46%;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span style="font-weight:600">Stable reserves</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">38%</span></div>
-              <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:38%;background-image:radial-gradient(circle,#2775ca 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span style="font-weight:600">Operations + grants</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">16%</span></div>
-              <div style="position:relative;height:8px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.6px,transparent 2.1px);background-size:9px 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:16%;background-image:radial-gradient(circle,var(--red,#c47b10) 1.6px,transparent 2.1px);background-size:9px 8px"></div></div>
-            </div>
-          </div>
-          <div data-action="demoExport" role="button" tabindex="0" style="display:inline-flex;align-items:center;gap:7px;margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;cursor:pointer" class="obh-7"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">download</span>TREASURY REPORT Q2</div>
+          <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">account_balance</span>TREASURY · <span data-slot="gov.treasury">—</span></div>
+          <div style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.7;color:var(--fnt,#a3a3a3)">Treasury holdings and allocation aren't published to members yet.</div>
         </div>
       </div>
     </div>

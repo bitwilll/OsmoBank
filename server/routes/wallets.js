@@ -50,25 +50,25 @@ const walletJson = (w) => ({
 });
 
 /** Load a wallet by :id and enforce ownership. 404 unknown, 403 not owned. */
-function ownWallet(req) {
+async function ownWallet(req) {
   const id = num(req.params.id, { min: 1, int: true, name: 'id' });
-  const wallet = db.prepare('SELECT * FROM wallets WHERE id = ?').get(id);
+  const wallet = await db.prepare('SELECT * FROM wallets WHERE id = ?').get(id);
   if (!wallet) throw new ApiError(404, 'Wallet not found');
   if (wallet.user_id !== req.user.id) throw new ApiError(403, 'Not your wallet');
   return wallet;
 }
 
 export default function mount(app) {
-  app.get('/api/wallets', requireAuth, (req, res, next) => {
+  app.get('/api/wallets', requireAuth, async (req, res, next) => {
     try {
-      const rows = db.prepare(
+      const rows = await db.prepare(
         'SELECT * FROM wallets WHERE user_id = ? ORDER BY created_at DESC, id DESC')
         .all(req.user.id);
       res.json({ wallets: rows.map(walletJson) });
     } catch (e) { next(e); }
   });
 
-  app.post('/api/wallets', requireAuth, (req, res, next) => {
+  app.post('/api/wallets', requireAuth, async (req, res, next) => {
     try {
       const chain = oneOf(str(req.body?.chain, { min: 3, max: 20, name: 'chain' }).toLowerCase(), CHAINS, 'chain');
       let address = str(req.body?.address, { min: 4, max: 128, name: 'address' });
@@ -84,44 +84,44 @@ export default function mount(app) {
         ? oneOf(str(req.body.kind, { min: 2, max: 10, name: 'kind' }).toLowerCase(), KINDS, 'kind')
         : 'hd';
 
-      const wallet = tx(() => {
-        const clash = db.prepare(
+      const wallet = await tx(async () => {
+        const clash = await db.prepare(
           'SELECT id FROM wallets WHERE user_id = ? AND chain = ? AND address = ?')
           .get(req.user.id, chain, address);
         if (clash) throw new ApiError(409, 'That address is already registered on this chain');
-        const id = Number(db.prepare(
+        const id = Number((await db.prepare(
           'INSERT INTO wallets (user_id, chain, address, label, kind) VALUES (?,?,?,?,?)')
-          .run(req.user.id, chain, address, label, kind).lastInsertRowid);
-        audit(req.user.id, 'wallet.add', `wallet:${id}`, `${chain}:${address}`);
-        return db.prepare('SELECT * FROM wallets WHERE id = ?').get(id);
+          .run(req.user.id, chain, address, label, kind)).lastInsertRowid);
+        await audit(req.user.id, 'wallet.add', `wallet:${id}`, `${chain}:${address}`);
+        return await db.prepare('SELECT * FROM wallets WHERE id = ?').get(id);
       });
 
       res.status(201).json({ wallet: walletJson(wallet) });
     } catch (e) { next(e); }
   });
 
-  app.patch('/api/wallets/:id', requireAuth, (req, res, next) => {
+  app.patch('/api/wallets/:id', requireAuth, async (req, res, next) => {
     try {
-      const existing = ownWallet(req);
+      const existing = await ownWallet(req);
       const label = cleanLabel(req.body?.label);
 
-      const wallet = tx(() => {
-        db.prepare('UPDATE wallets SET label = ? WHERE id = ?').run(label, existing.id);
-        audit(req.user.id, 'wallet.relabel', `wallet:${existing.id}`, label);
-        return db.prepare('SELECT * FROM wallets WHERE id = ?').get(existing.id);
+      const wallet = await tx(async () => {
+        await db.prepare('UPDATE wallets SET label = ? WHERE id = ?').run(label, existing.id);
+        await audit(req.user.id, 'wallet.relabel', `wallet:${existing.id}`, label);
+        return await db.prepare('SELECT * FROM wallets WHERE id = ?').get(existing.id);
       });
 
       res.json({ wallet: walletJson(wallet) });
     } catch (e) { next(e); }
   });
 
-  app.delete('/api/wallets/:id', requireAuth, (req, res, next) => {
+  app.delete('/api/wallets/:id', requireAuth, async (req, res, next) => {
     try {
-      const existing = ownWallet(req);
+      const existing = await ownWallet(req);
 
-      tx(() => {
-        db.prepare('DELETE FROM wallets WHERE id = ?').run(existing.id);
-        audit(req.user.id, 'wallet.remove', `wallet:${existing.id}`, `${existing.chain}:${existing.address}`);
+      await tx(async () => {
+        await db.prepare('DELETE FROM wallets WHERE id = ?').run(existing.id);
+        await audit(req.user.id, 'wallet.remove', `wallet:${existing.id}`, `${existing.chain}:${existing.address}`);
       });
 
       res.json({ ok: true });

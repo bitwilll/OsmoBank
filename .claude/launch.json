@@ -4,7 +4,7 @@
     {
       "name": "osmobank",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["--experimental-sqlite", "server/index.js"],
+      "runtimeArgs": ["server/index.js"],
       "port": 8471
     }
   ]

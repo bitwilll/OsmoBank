@@ -106,6 +106,19 @@ export async function importVault(mnemonic) {
 
 export function lockVault() { vault = null; }
 
+/**
+ * Sign an arbitrary message with the wallet's Ethereum key, derived from a
+ * recovery phrase. Used by account recovery: the mnemonic is validated and used
+ * only in-memory here; only the resulting address + signature leave the device.
+ */
+export async function signChallenge(mnemonic, message) {
+  const L = await lib();
+  const clean = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!L.validateMnemonic(clean, L.wordlist)) throw new Error('That recovery phrase is not valid (BIP39).');
+  const w = L.HDNodeWallet.fromPhrase(clean);
+  return { address: w.address, signature: await w.signMessage(message) };
+}
+
 async function registerAddresses() {
   for (const [chain, address] of Object.entries(addresses())) {
     try {
