@@ -101,7 +101,7 @@ export async function hydrate(root, ctx) {
   slot(root, 'reports.dividends').textContent = fmt.usd(rep.dividendsYtd);
   const ventureCount = new Set(paid.map((d) => d.venture)).size;
   slot(root, 'reports.dividendsSub').textContent =
-    `ACROSS ${fmt.num(ventureCount)} VENTURES · ${fmt.num(paid.length)} PAYOUTS`;
+    `ACROSS ${fmt.num(ventureCount)} ${ventureCount === 1 ? 'VENTURE' : 'VENTURES'} · ${fmt.num(paid.length)} ${paid.length === 1 ? 'PAYOUT' : 'PAYOUTS'}`;
 
   slot(root, 'reports.fees').textContent = fmt.usd2(rep.feesYtd);
   slot(root, 'reports.receipts').textContent = fmt.num(rep.receiptsFiled);

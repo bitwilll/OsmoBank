@@ -15,11 +15,16 @@ after(() => srv.stop());
 
 // ---- auth gates ------------------------------------------------------------
 
-test('all dao endpoints require auth (401)', async () => {
+test('dao auth gates: writes and member views require auth; the raise is public', async () => {
   const anon = client(base);
   assert.equal((await anon.get('/api/proposals')).status, 401);
   assert.equal((await anon.post('/api/proposals/1/vote', { support: true })).status, 401);
-  assert.equal((await anon.get('/api/fundraiser')).status, 401);
+  // The open fundraiser is marketing-surface content: readable by anyone,
+  // contributable only by members.
+  const f = await anon.get('/api/fundraiser');
+  assert.equal(f.status, 200);
+  assert.equal(f.json.fundraiser.title, 'Nova Reef Series B Raise');
+  assert.equal(typeof f.json.fundraiser.sector, 'string');
   assert.equal((await anon.post('/api/fundraiser/contribute', { amount: 100 })).status, 401);
 });
 

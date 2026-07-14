@@ -14,7 +14,13 @@ const S = {
 const UOF_COLORS = ['#1fb597', '#2775ca', 'var(--red,#c47b10)'];
 
 // Design's millions format: $1.6M / $2.4M / $0.7M
-const usdM = (n) => '$' + (Number(n ?? 0) / 1e6).toFixed(1) + 'M';
+// Millions notation only when the amount is actually in the millions — a
+// $5,000 raise reads '$5,000', not '$0.0M'.
+const usdM = (n) => {
+  const v = Number(n ?? 0);
+  return v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M'
+    : '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+};
 
 const CHIP_ACTIVE = 'border:1px solid var(--ink,#0a0a0a);border-radius:100px;padding:9px 18px;font-weight:600;cursor:pointer';
 const CHIP_IDLE = 'border:1px dotted var(--dt2,#c6c6c6);border-radius:100px;padding:9px 18px;color:var(--mut,#757575);cursor:pointer';

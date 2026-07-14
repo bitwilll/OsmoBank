@@ -24,9 +24,14 @@ before(async () => {
 
 after(() => srv.stop());
 
-test('401 when unauthenticated', async () => {
+test('auth gates: the floor is public read-only; every write requires auth', async () => {
   const c = client(base);
-  assert.equal((await c.get('/api/ventures')).status, 401);
+  // Anonymous visitors see the same active listings members do, with youHold 0.
+  const list = await c.get('/api/ventures');
+  assert.equal(list.status, 200);
+  assert.ok(list.json.ventures.length > 0);
+  assert.ok(list.json.ventures.every((v) => ['active', 'closed'].includes(v.status)), 'no pending listings for anonymous');
+  assert.ok(list.json.ventures.every((v) => v.youHold === 0));
   assert.equal((await c.post('/api/ventures', { name: 'X' })).status, 401);
   assert.equal((await c.post(`/api/ventures/${HELIOS}/invest`, { amount: 100 })).status, 401);
   assert.equal((await c.post(`/api/ventures/${HELIOS}/exit`)).status, 401);

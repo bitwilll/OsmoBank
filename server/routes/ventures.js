@@ -34,14 +34,16 @@ const VENTURE_WITH_AGGREGATES = `
   FROM ventures v`;
 
 export default function mount(app) {
-  app.get('/api/ventures', requireAuth, async (req, res, next) => {
+  // Public read: the venture floor is the DAO's storefront, and the payload
+  // holds no member data — `youHold` is simply 0 for anonymous visitors.
+  app.get('/api/ventures', async (req, res, next) => {
     try {
-      const seesAll = req.user.role === 'admin' || req.user.role === 'manager';
+      const seesAll = req.user && ['admin', 'manager'].includes(req.user.role);
       const rows = await db.prepare(
         `${VENTURE_WITH_AGGREGATES}
          WHERE v.status IN ('active','closed') OR ? = 1
          ORDER BY v.id`)
-        .all(req.user.id, seesAll ? 1 : 0);
+        .all(req.user?.id ?? 0, seesAll ? 1 : 0);
       res.json({ ventures: rows.map(ventureView) });
     } catch (e) { next(e); }
   });

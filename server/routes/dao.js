@@ -56,7 +56,7 @@ async function openFundraiser() {
 }
 
 async function fundraiserView(f) {
-  const venture = await db.prepare('SELECT name FROM ventures WHERE id = ?').get(f.venture_id);
+  const venture = await db.prepare('SELECT name, sector FROM ventures WHERE id = ?').get(f.venture_id);
   // The backing proposal: the live proposal that names the venture, falling back
   // to the most recent live proposal (no FK exists in the schema).
   let proposal = venture
@@ -89,6 +89,7 @@ async function fundraiserView(f) {
     useOfFunds: [],
     updates: [],
     ventureName: venture?.name ?? null,
+    sector: venture?.sector ?? null,
     proposalCode: proposal?.code ?? null,
     proposalForPct,
   };
@@ -156,7 +157,10 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
-  app.get('/api/fundraiser', requireAuth, async (req, res, next) => {
+  // Public read: the open raise is marketing-surface content with no member
+  // data — anonymous visitors on the home page and fundraiser screen see the
+  // same real numbers members do. Contributing still requires auth below.
+  app.get('/api/fundraiser', async (_req, res, next) => {
     try {
       const f = await openFundraiser();
       if (!f) throw new ApiError(404, 'No open fundraiser');
