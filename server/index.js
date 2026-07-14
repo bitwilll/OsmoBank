@@ -84,7 +84,14 @@ app.use((req, res, next) => {
 let dbReady = false;
 app.use((req, res, next) => {
   if (dbReady) return next();
-  initDb().then(() => { dbReady = true; next(); }).catch(next);
+  initDb().then(() => { dbReady = true; next(); }).catch((err) => {
+    // The database is unreachable or not yet configured (e.g. TURSO_* env not
+    // set on the deployment). Surface an honest 503 instead of a bare 500 so
+    // clients can retry; the real cause is logged, never sent to the client.
+    console.error('DB init failed:', err);
+    res.setHeader('Retry-After', '30');
+    res.status(503).json({ error: 'Service temporarily unavailable — please try again in a moment.' });
+  });
 });
 
 app.use(loadSession);

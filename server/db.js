@@ -339,6 +339,12 @@ export function initDb() {
         }
       }
     }
-  })();
+  })().catch((e) => {
+    // Never cache a failed init (e.g. the DB is unreachable / not yet
+    // configured). Clearing the memo lets the next request retry, so the
+    // instance self-heals once the database becomes available — no redeploy.
+    initPromise = null;
+    throw e;
+  });
   return initPromise;
 }
