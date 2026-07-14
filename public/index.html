@@ -19,14 +19,16 @@ input,select{outline:none}
 @keyframes ob-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @keyframes ob-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 @keyframes ob-pulse{0%{box-shadow:0 0 0 0 rgba(196,123,16,.45)}70%{box-shadow:0 0 0 11px rgba(196,123,16,0)}100%{box-shadow:0 0 0 0 rgba(196,123,16,0)}}
-/* Mini Earth orbiting the hero ring (the .ob-orbit box is centered on the ring). */
-.ob-orbit{position:absolute;z-index:-1;right:30px;top:30px;width:430px;height:430px;animation:ob-orbit 22s linear infinite;pointer-events:none}
-.ob-earth{position:absolute;top:-12px;left:50%;width:24px;height:24px;margin-left:-12px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 34% 30%,#9ad7f7 0%,#4aa3e0 40%,#2e6fb0 70%,#173f72 100%);box-shadow:inset -3px -3px 5px rgba(0,0,0,.45),0 0 7px rgba(74,163,224,.55);animation:ob-spin-rev 22s linear infinite}
-.ob-earth i{position:absolute;inset:0;border-radius:50%;background-repeat:repeat-x;background-size:24px 24px;background-image:radial-gradient(circle at 18% 42%,#33a75c 0 3.2px,transparent 3.8px),radial-gradient(circle at 40% 63%,#2c9350 0 4px,transparent 4.6px),radial-gradient(circle at 66% 38%,#33a75c 0 3.4px,transparent 4px),radial-gradient(circle at 84% 58%,#2c9350 0 2.8px,transparent 3.4px);animation:ob-globe 7s linear infinite;opacity:.9}
-@keyframes ob-orbit{to{transform:rotate(360deg)}}
-@keyframes ob-spin-rev{to{transform:rotate(-360deg)}}
-@keyframes ob-globe{to{background-position:-24px 0}}
-@media (prefers-reduced-motion:reduce){.ob-orbit,.ob-earth,.ob-earth i{animation:none}}
+/* Animated logo watermark in the hero: a big, faint ringed star. The Saturn ring
+   slowly revolves around the star (rotates about the shared centre) while the star
+   softly twinkles. Colour is var(--hr) so it stays as subtle as the old rings. */
+.ob-mark-bg{position:absolute;z-index:-1;right:-24px;top:44px;width:440px;height:412px;max-width:60%;pointer-events:none;opacity:.9}
+.ob-mark-bg svg{width:100%;height:100%;overflow:visible;display:block}
+.ob-mark-ring{transform-box:fill-box;transform-origin:center;animation:ob-ring-rev 24s linear infinite}
+.ob-mark-star{transform-box:fill-box;transform-origin:center;animation:ob-twinkle 6.5s ease-in-out infinite}
+@keyframes ob-ring-rev{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes ob-twinkle{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.06);opacity:1}}
+@media (prefers-reduced-motion:reduce){.ob-mark-ring,.ob-mark-star{animation:none}}
 </style>
 </head>
 <body>

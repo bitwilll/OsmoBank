@@ -58,12 +58,14 @@
   </div>
 
   <div style="max-width:1240px;margin:0 auto;padding:clamp(48px,8vw,110px) clamp(20px,4vw,48px) clamp(36px,5vw,64px);text-align:center;position:relative;z-index:0;overflow:hidden">
-    <!-- Orbital backdrop (macro of the logo mark): a tilted orbit ring crosses the
-         Earth's circular track, sharing one center — deliberately not two equal circles. -->
-    <div style="position:absolute;z-index:-1;right:-20px;top:135px;width:530px;height:220px;border:2px solid var(--hr,#e4e4e4);border-radius:50%;transform:rotate(-27deg)"></div>
-    <div style="position:absolute;z-index:-1;right:30px;top:30px;width:430px;height:430px;border:2px solid var(--hr,#e4e4e4);border-radius:50%"></div>
-    <!-- Mini Earth orbiting the circular track (replaces the static pulse dot). -->
-    <div class="ob-orbit"><div class="ob-earth"><i></i></div></div>
+    <!-- Animated logo watermark (replaces the orbit rings + orbiting Earth): the
+         Saturn ring slowly revolves around the star, which softly twinkles. -->
+    <div class="ob-mark-bg" aria-hidden="true">
+      <svg viewBox="0 0 32 30" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <ellipse class="ob-mark-ring" cx="15" cy="15" rx="13.5" ry="4.6" stroke="var(--hr,#e4e4e4)" stroke-width="0.5"/>
+        <path class="ob-mark-star" d="M15 6.2 L17.2 12.8 L23.8 15 L17.2 17.2 L15 23.8 L12.8 17.2 L6.2 15 L12.8 12.8 Z" fill="var(--hr,#e4e4e4)"/>
+      </svg>
+    </div>
     <div style="position:absolute;z-index:-1;left:-90px;bottom:-30px;width:380px;height:280px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.7px,transparent 2.2px);background-size:14px 14px;-webkit-mask:radial-gradient(closest-side,#000,transparent);mask:radial-gradient(closest-side,#000,transparent)"></div>
     <div style="display:inline-flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.16em;color:var(--mut,#757575);border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:7px 16px;background:var(--sf,#fff)"><span style="width:5px;height:5px;border-radius:50%;background:var(--grn,#17a562);display:inline-block"></span>MEMBER-OWNED · ON-CHAIN · 48,201 CO-OWNERS</div>
     <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(44px,8.5vw,108px);line-height:1.02;margin-top:28px;letter-spacing:.01em">BANK TO<br>THE FUTURE</div>
