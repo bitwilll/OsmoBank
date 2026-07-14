@@ -14,6 +14,8 @@ const FLAG = {
   goals: 'isGoals', gov: 'isGov', fund: 'isFund', admin: 'isAdmin',
 };
 const PUBLIC_SCREENS = ['home', 'login', 'signup', 'fund'];
+// Operator sign-in lives at a private deep link rather than a visible tab.
+const ADMIN_LOGIN_HASH = '#/login/admin';
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -120,13 +122,17 @@ function guard(screenName) {
 }
 
 async function applyScreen(s) {
+  // The operator deep link (#/login/admin) opens the login screen in admin mode.
+  const adminLogin = s === 'login' && location.hash === ADMIN_LOGIN_HASH;
   s = guard(s);
+  if (s === 'login') state.authMode = adminLogin ? 'admin' : 'member';
   state.screen = s;
   state.invest = null;
   store.set('ob_screen', s);
   window.scrollTo(0, 0);
   render();
-  if (location.hash !== '#/' + s) history.replaceState(null, '', '#/' + s);
+  const canonical = adminLogin && s === 'login' ? ADMIN_LOGIN_HASH : '#/' + s;
+  if (location.hash !== canonical) history.replaceState(null, '', canonical);
   await runHydrator(s);
 }
 
@@ -135,7 +141,14 @@ export function nav(s) {
   else location.hash = '#/' + s;
 }
 
+/** Operator sign-in — reachable only by this private link, never a visible tab. */
+function navAdminLogin() {
+  if (location.hash === ADMIN_LOGIN_HASH) applyScreen('login');
+  else location.hash = ADMIN_LOGIN_HASH;
+}
+
 const routeFromHash = () => {
+  if (location.hash === ADMIN_LOGIN_HASH) return 'login';
   const m = /^#\/(\w+)$/.exec(location.hash);
   return m && SCREENS.includes(m[1]) ? m[1] : null;
 };
@@ -724,8 +737,7 @@ const actions = {
     store.set('ob_dark', state.dark ? '1' : '0');
     render();
   },
-  setAuthMember() { state.authMode = 'member'; render(); },
-  setAuthAdmin() { state.authMode = 'admin'; render(); },
+  adminLogin: navAdminLogin,
 
   async submitLogin() {
     const root = $('[data-partial="login"]');
