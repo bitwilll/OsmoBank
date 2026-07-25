@@ -250,8 +250,21 @@ CREATE INDEX IF NOT EXISTS idx_support_status ON support_tickets(status, id);
 
 // Operator identity comes from the environment where provided; the defaults
 // keep local/test setups working unchanged.
-const adminEmail = () => (process.env.OSMO_ADMIN_EMAIL || 'admin@osmo.money').toLowerCase();
-const managerEmail = () => (process.env.OSMO_MANAGER_EMAIL || 'marisol@osmo.money').toLowerCase();
+// Normalised exactly like a registered address (routes/auth.js trims + lowercases),
+// so a value pasted with stray whitespace still matches instead of writing an
+// address no login could ever resolve. An unusable value falls back to the default.
+const OPERATOR_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const operatorEmail = (raw, fallback) => {
+  const v = String(raw ?? '').trim().toLowerCase();
+  if (!v) return fallback;
+  if (!OPERATOR_EMAIL_RE.test(v)) {
+    console.error(`operator email ignored (not a valid address): ${JSON.stringify(raw)}`);
+    return fallback;
+  }
+  return v;
+};
+const adminEmail = () => operatorEmail(process.env.OSMO_ADMIN_EMAIL, 'admin@osmo.money');
+const managerEmail = () => operatorEmail(process.env.OSMO_MANAGER_EMAIL, 'marisol@osmo.money');
 
 // Demo fixtures (sample members, ventures, proposals, a fundraiser) are seeded
 // ONLY when OSMO_SEED_DEMO=1 — used by tests and local demos. Production seeds
@@ -343,10 +356,14 @@ async function seed() {
     await audit(adminId, 'seed', 'db', 'initial seed');
   });
 
+  // Print a generated password once so a fresh local DB is usable — but never
+  // echo one supplied via the environment: deployment logs are retained and
+  // widely readable, and the operator already knows the value they set.
   /* eslint-disable no-console */
+  const shown = (envVar, generated) => (envVar ? '(from environment)' : generated);
   console.log('OsmoBank seeded. Operator sign-in (shown once):');
-  console.log(`  admin   → ${adminEmail()}   / ${adminPass}`);
-  console.log(`  manager → ${managerEmail()} / ${managerPass}`);
+  console.log(`  admin   → ${adminEmail()}   / ${shown(process.env.OSMO_ADMIN_PASS, adminPass)}`);
+  console.log(`  manager → ${managerEmail()} / ${shown(process.env.OSMO_MANAGER_PASS, managerPass)}`);
 }
 
 // One-shot cleanup for databases that were seeded with demo fixtures BEFORE
@@ -414,24 +431,64 @@ function passMatches(passphrase, stored) {
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
+/**
+ * Reconcile one operator slot (identified by its seeded HANDLE) with the
+ * environment, so credentials added or rotated after the first seed still take
+ * effect. Deliberately narrow:
+ *
+ *  - The slot is always the seeded row. An address in the env NEVER confers a
+ *    role on whoever happens to hold it: addresses are unverified at signup, so
+ *    treating one as proof of identity would let anyone who registers it first
+ *    be handed the console. A taken address is reported and skipped; resolving
+ *    it is an operator decision, not something a cold start should guess at.
+ *  - The env password is applied on first sight and on genuine rotation, but an
+ *    operator who then sets their own password keeps it — we re-apply only while
+ *    the stored hash is still the one this sync wrote (tracked in `meta`).
+ *    Otherwise every cold start would silently revert their password.
+ *  - A real credential change revokes sessions and any pending reset token, so
+ *    rotating after a leak actually evicts the previous holder.
+ *
+ * Runs inside a transaction: a partial apply must not leave the credential
+ * changed while the revocation is skipped forever.
+ */
 async function syncOperator(handle, pass, email) {
-  const row = await db.prepare('SELECT id, pass, email FROM users WHERE handle = ?').get(handle);
+  const row = await db.prepare('SELECT id, handle, pass, email FROM users WHERE handle = ?').get(handle);
   if (!row) return;
+  const appliedKey = `operator_pass_${handle}`;
+
   if (email && row.email !== email) {
-    try {
-      await db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, row.id);
-      await audit(row.id, 'email_sync', 'user:' + row.id, 'operator email updated from environment');
-    } catch (e) {
-      // The address is already taken by another account — leave the old one
-      // rather than failing every request from initDb.
-      if (!/UNIQUE|constraint/i.test(String(e?.message))) throw e;
-      console.error(`operator email sync skipped: ${email} already in use`);
+    const taken = await db.prepare('SELECT handle FROM users WHERE email = ? AND id != ?').get(email, row.id);
+    if (taken) {
+      console.error(
+        `operator email not applied: ${email} already belongs to @${taken.handle}. `
+        + `Free the address (or sign in as @${row.handle}) to resolve it.`);
+    } else {
+      await tx(async () => {
+        await db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, row.id);
+        await audit(null, 'email_sync', 'user:' + row.id, `@${row.handle}: ${row.email} → ${email} (from environment)`);
+      });
     }
   }
-  if (pass && !passMatches(pass, row.pass)) {
-    await db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(hashPass(pass), row.id);
-    await audit(row.id, 'pass_sync', 'user:' + row.id, 'operator password updated from environment');
+
+  if (!pass || passMatches(pass, row.pass)) return;
+  // Only overwrite a password this sync itself last wrote; a password the
+  // operator chose in the app is theirs to keep.
+  const applied = (await db.prepare('SELECT value FROM meta WHERE key = ?').get(appliedKey))?.value;
+  if (applied && applied !== row.pass) {
+    console.error(`operator password not applied: @${row.handle} has since set their own passphrase`);
+    return;
   }
+  const next = hashPass(pass);
+  await tx(async () => {
+    await db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(next, row.id);
+    await db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.id);
+    await db.prepare("UPDATE password_resets SET used_at = datetime('now') WHERE user_id = ? AND used_at IS NULL")
+      .run(row.id);
+    await db.prepare('INSERT INTO meta (key, value) VALUES (?,?) ON CONFLICT (key) DO UPDATE SET value = excluded.value')
+      .run(appliedKey, next);
+    await audit(null, 'pass_sync', 'user:' + row.id,
+      `@${row.handle}: passphrase set from environment; sessions and pending resets revoked`);
+  });
 }
 
 // Optional launch figures for the homepage "THE BANK, IN NUMBERS" section:
@@ -475,7 +532,10 @@ export function initDb() {
     }
     if (!seedDemo()) await purgeDemoContent();
     await syncOperator('admin', process.env.OSMO_ADMIN_PASS, adminEmail());
-    await syncOperator('marisol', process.env.OSMO_MANAGER_PASS, managerEmail());
+    // Both slots naming one address would have them fight over the same row.
+    if (managerEmail() !== adminEmail()) {
+      await syncOperator('marisol', process.env.OSMO_MANAGER_PASS, managerEmail());
+    }
     await seedStatOverridesFromEnv();
   })().catch((e) => {
     // Never cache a failed init (e.g. the DB is unreachable / not yet

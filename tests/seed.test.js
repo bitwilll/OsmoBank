@@ -108,3 +108,84 @@ test('OSMO_STATS_DEFAULTS seeds curated figures once; operator edits win forever
   assert.deepEqual(s2.curated, [], 'operator clear survives reboot despite env defaults');
   assert.equal(s2.members, 5); // live demo-seed count
 });
+
+// ---- operator credential sync -----------------------------------------------
+
+test('operator email sync: applied when free, refused when another account holds it', async (t) => {
+  const OPS = 'ops@example.com';
+  // Free address → the seeded operator row adopts it.
+  const srv1 = await bootServer({ OSMO_ADMIN_EMAIL: OPS });
+  const a = client(srv1.base);
+  assert.equal((await a.post('/api/auth/login', { identifier: OPS, passphrase: 'admin-test-pass-123' })).status, 200);
+  srv1.stop();
+  await new Promise((r) => setTimeout(r, 200));
+
+  // A member holds the address the env names: it must NOT confer any role.
+  const srv2 = await bootServer();
+  const { c: theirs, user } = await registerMember(srv2.base, { email: OPS, fund: false });
+  srv2.stop();
+  await new Promise((r) => setTimeout(r, 200));
+
+  const srv3 = await bootServer({ OSMO_DB: srv2.dbPath, OSMO_ADMIN_EMAIL: OPS, OSMO_ADMIN_PASS: 'would-be-console-pass' });
+  t.after(() => srv3.stop());
+  const c = client(srv3.base);
+  // The member keeps their own role and their own passphrase.
+  const theirLogin = await c.post('/api/auth/login', { identifier: OPS, passphrase: 'correct-horse-battery' });
+  assert.equal(theirLogin.status, 200);
+  assert.equal(theirLogin.json.user.role, 'member', 'holding the address must never grant admin');
+  assert.equal(theirLogin.json.user.handle, user.handle);
+  assert.equal((await c.get('/api/admin/overview')).status, 403);
+  // The env password never landed on their account either.
+  const impostor = await client(srv3.base).post('/api/auth/login', { identifier: OPS, passphrase: 'would-be-console-pass' });
+  assert.equal(impostor.status, 401);
+  // Their pre-existing session is untouched — nothing about them changed.
+  const replay = await fetch(`${srv3.base}/api/me`, { headers: { Cookie: theirs.cookieValue() } });
+  assert.equal(replay.status, 200);
+  // The real operator is still reachable on its own handle.
+  const seeded = await client(srv3.base).post('/api/auth/login', { identifier: 'admin', passphrase: 'would-be-console-pass' });
+  assert.equal(seeded.status, 200);
+  assert.equal(seeded.json.user.role, 'admin');
+});
+
+test('operator password sync: applies once, revokes on rotation, never claws back a self-chosen one', async (t) => {
+  const srv1 = await bootServer({ OSMO_ADMIN_PASS: 'env-pass-one-11111' });
+  const a = client(srv1.base);
+  assert.equal((await a.post('/api/auth/login', { identifier: 'admin', passphrase: 'env-pass-one-11111' })).status, 200);
+  srv1.stop();
+  await new Promise((r) => setTimeout(r, 200));
+
+  // Rotation: the new value applies and the old session is revoked.
+  const srv2 = await bootServer({ OSMO_DB: srv1.dbPath, OSMO_ADMIN_PASS: 'env-pass-two-22222' });
+  const b = client(srv2.base);
+  assert.equal((await b.post('/api/auth/login', { identifier: 'admin', passphrase: 'env-pass-one-11111' })).status, 401,
+    'the superseded password stops working');
+  assert.equal((await b.post('/api/auth/login', { identifier: 'admin', passphrase: 'env-pass-two-22222' })).status, 200);
+  const stale = await fetch(`${srv2.base}/api/me`, { headers: { Cookie: a.cookieValue() } });
+  assert.equal(stale.status, 401, 'sessions from before the rotation are revoked');
+
+  // The operator sets their own passphrase in the app.
+  assert.equal((await b.post('/api/me/passphrase',
+    { current: 'env-pass-two-22222', next: 'my-own-chosen-pass-33' })).status, 200);
+  srv2.stop();
+  await new Promise((r) => setTimeout(r, 200));
+
+  // A cold start with the SAME env must not revert it.
+  const srv3 = await bootServer({ OSMO_DB: srv1.dbPath, OSMO_ADMIN_PASS: 'env-pass-two-22222' });
+  t.after(() => srv3.stop());
+  const c = client(srv3.base);
+  assert.equal((await c.post('/api/auth/login', { identifier: 'admin', passphrase: 'my-own-chosen-pass-33' })).status, 200,
+    'a self-chosen passphrase survives cold starts');
+  assert.equal((await client(srv3.base).post('/api/auth/login',
+    { identifier: 'admin', passphrase: 'env-pass-two-22222' })).status, 401, 'the env value no longer works');
+});
+
+test('operator email: whitespace is normalised, an invalid value is ignored', async (t) => {
+  const srv = await bootServer({ OSMO_ADMIN_EMAIL: '  OPS@Example.COM  ', OSMO_MANAGER_EMAIL: 'not-an-address' });
+  t.after(() => srv.stop());
+  const c = client(srv.base);
+  assert.equal((await c.post('/api/auth/login', { identifier: 'ops@example.com', passphrase: 'admin-test-pass-123' })).status, 200,
+    'trimmed + lowercased to match how addresses are stored');
+  // The invalid manager address was ignored, leaving the seeded default intact.
+  assert.equal((await client(srv.base).post('/api/auth/login',
+    { identifier: 'marisol@osmo.money', passphrase: 'manager-test-pass-123' })).status, 200);
+});
