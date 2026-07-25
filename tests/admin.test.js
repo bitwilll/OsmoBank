@@ -61,7 +61,9 @@ test('overview: real counts, treasury, queues, newest members, network', async (
   assert.equal(o.volume24h, 83400);
   assert.equal(o.transfers24h, 0);
 
-  assert.deepEqual(o.needsAction, { listings: 2, payoutsDue: 4, kyc: 1 });
+  // "kyc" counts pending Osmo Assure submissions (none seeded), not accounts
+  // whose status happens to be 'review' — see routes/kyc.js.
+  assert.deepEqual(o.needsAction, { listings: 2, payoutsDue: 4, kyc: 0 });
 
   // Listing queue = the two seeded pending ventures.
   assert.equal(o.listingQueue.length, 2);
@@ -94,12 +96,16 @@ test('overview: real counts, treasury, queues, newest members, network', async (
   for (const m of o.newestMembers) {
     assert.equal(m.memberNo, m.id); // real account id, no vanity offset
     assert.equal(typeof m.joinedAgo, 'string');
-    assert.ok(['verified', 'pending'].includes(m.kyc));
+    assert.ok(['verified', 'pending', 'rejected', 'withdrawn', 'none'].includes(m.kyc));
     assert.ok(['active', 'review', 'frozen'].includes(m.status));
     assert.ok(['member', 'manager', 'admin'].includes(m.role)); // role drives the console's per-row selector
   }
+  // Verification reflects a real submission, so an account nobody has verified
+  // reads 'none' — being merely 'active' is never a tick.
+  for (const m of o.newestMembers) assert.equal(m.kyc, 'none');
   const tunde = o.newestMembers.find((m) => m.handle === 'tunde');
-  assert.equal(tunde.kyc, 'pending'); // status 'review' → KYC pending
+  assert.equal(tunde.status, 'review');
+  assert.equal(tunde.kyc, 'none');
   assert.equal(o.newestMembers[0].joinedAgo, 'just now');
 
   // Deterministic synthetic network stats.

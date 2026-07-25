@@ -6,6 +6,19 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["server/index.js"],
       "port": 8471
+    },
+    {
+      "name": "osmo-clean",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "OSMO_DB=/private/tmp/claude-501/-Users-justcurious-Desktop-OsmoBank/9dcac9ca-faad-4085-8d74-e0b535134b3e/scratchpad/clean-verify.db",
+        "OSMO_ADMIN_PASS=local-admin-pass-123",
+        "OSMO_ADMIN_EMAIL=jay@osmobank.com",
+        "PORT=8473",
+        "node",
+        "server/index.js"
+      ],
+      "port": 8473
     }
   ]
 }

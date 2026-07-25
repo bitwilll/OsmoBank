@@ -13,6 +13,7 @@ import mountAdmin from './routes/admin.js';
 import mountSecurity from './routes/security.js';
 import mountCards from './routes/cards.js';
 import mountSupport from './routes/support.js';
+import mountKyc from './routes/kyc.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8471);
@@ -107,6 +108,7 @@ mountAdmin(app);
 mountSecurity(app);
 mountCards(app);
 mountSupport(app);
+mountKyc(app);
 
 app.use('/api', (_req, _res, next) => next(new ApiError(404, 'Not found')));
 

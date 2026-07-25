@@ -1,0 +1,151 @@
+<div data-screen-label="Osmo Assure — identity verification">
+  <div style="position:sticky;top:0;z-index:50;display:flex;align-items:center;flex-wrap:wrap;gap:12px 22px;padding:12px clamp(16px,3vw,44px);background:var(--sf,#fff);border-bottom:1px solid var(--hr,#e4e4e4)">
+    <div data-action="goHome" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <svg width="27" height="24" viewBox="0 0 32 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;overflow:visible"><defs><clipPath id="ob-sat-15"><path d="M15 6.2 L17.2 12.8 L23.8 15 L17.2 17.2 L15 23.8 L12.8 17.2 L6.2 15 L12.8 12.8 Z"/></clipPath></defs><path d="M15 6.2 L17.2 12.8 L23.8 15 L17.2 17.2 L15 23.8 L12.8 17.2 L6.2 15 L12.8 12.8 Z" fill="var(--ink,#0a0a0a)"/><ellipse cx="15" cy="15" rx="13.5" ry="4.6" transform="rotate(-22 15 15)" fill="none" stroke="var(--ink,#0a0a0a)" stroke-width="2.4"/><g clip-path="url(#ob-sat-15)"><ellipse cx="15" cy="15" rx="13.5" ry="4.6" transform="rotate(-22 15 15)" fill="none" stroke="var(--inv,#ffffff)" stroke-width="2.4"/></g></svg>
+      <div style="font-size:16px;font-weight:700">Osmo<span style="font-weight:400">Bank</span></div>
+    </div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--mut,#757575);display:flex;align-items:center;gap:6px"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">encrypted</span>OSMO ASSURE · KYC</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+      <div data-action="toggleTheme" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--mut,#757575);cursor:pointer;border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:6px 12px" class="obh-1"><span data-text="themeLabel"></span></div>
+      <div data-slot="assure.loginBtn" data-action="goLogin" role="button" tabindex="0" style="display:none;font-size:14px;font-weight:600;cursor:pointer;padding:9px 18px;border-radius:100px;border:1px solid var(--dt,#d9d9d9)" class="obh-2">Log in</div>
+      <div data-slot="assure.dashBtn" data-action="goDash" role="button" tabindex="0" style="display:none;font-size:14px;font-weight:600;cursor:pointer;padding:9px 18px;border-radius:100px;border:1px solid var(--dt,#d9d9d9)" class="obh-2">Dashboard</div>
+    </div>
+  </div>
+
+  <div style="max-width:1140px;margin:0 auto;padding:clamp(28px,5vw,52px) clamp(16px,3vw,44px) 44px">
+
+    <!-- ---------------------------------------------------------------- hero -->
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;justify-content:space-between">
+      <div style="max-width:640px">
+        <div style="display:inline-flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.16em;color:var(--mut,#757575);border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:7px 16px;background:var(--sf,#fff)"><span style="width:5px;height:5px;border-radius:50%;background:var(--grn,#17a562);display:inline-block"></span>AES-256-GCM · AUDITED ACCESS</div>
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(34px,5.5vw,60px);line-height:1.04;margin-top:20px;letter-spacing:.02em">OSMO ASSURE</div>
+        <div style="font-size:clamp(14.5px,1.7vw,17px);line-height:1.65;color:var(--mut,#757575);margin-top:14px">Identity verification for OsmoBank members. You submit your details once. They are sealed with authenticated encryption before they reach the database, and the only way anyone reads them is a reviewer opening your case — an action written to the audit log with their name on it.</div>
+      </div>
+      <div data-slot="assure.statusCard" style="min-width:260px;flex:1;max-width:340px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:20px;padding:22px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;opacity:.6">YOUR VERIFICATION</div>
+        <div data-slot="assure.statusBig" style="font-family:'Doto',monospace;font-weight:900;font-size:28px;margin-top:12px;letter-spacing:.02em">—</div>
+        <div data-slot="assure.statusSub" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;opacity:.6;margin-top:6px;line-height:1.6">Sign in to check your status.</div>
+        <div data-slot="assure.statusAction" data-action="assureScrollPortal" role="button" tabindex="0" style="display:none;margin-top:16px;background:var(--inv,#fff);color:var(--ink,#0a0a0a);border-radius:100px;padding:11px 0;text-align:center;font-size:14px;font-weight:600;cursor:pointer" class="obh-3">Start verification</div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------- how it works -->
+    <div style="display:flex;align-items:baseline;gap:14px;border-top:1px dotted var(--dt2,#c6c6c6);margin-top:clamp(30px,5vw,52px);padding-top:26px">
+      <div style="font-family:'Doto',monospace;font-weight:900;font-size:20px">01</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.16em;color:var(--mut,#757575)">HOW YOUR DETAILS ARE PROTECTED</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:22px">
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:22px">
+        <span style="font-family:'Material Symbols Sharp';font-size:22px;line-height:1;color:var(--grn,#17a562)">lock</span>
+        <div style="font-size:16.5px;font-weight:700;margin-top:12px">Sealed before storage</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--mut,#757575);margin-top:6px">Your name, date of birth, document number and address are encrypted with AES-256-GCM in the request that carries them. The database only ever holds ciphertext.</div>
+      </div>
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:22px">
+        <span style="font-family:'Material Symbols Sharp';font-size:22px;line-height:1;color:var(--grn,#17a562)">verified_user</span>
+        <div style="font-size:16.5px;font-weight:700;margin-top:12px">Tamper-evident</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--mut,#757575);margin-top:6px">GCM authenticates as well as encrypts. A record that has been altered fails to open — it cannot quietly decrypt to something else.</div>
+      </div>
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:22px">
+        <span style="font-family:'Material Symbols Sharp';font-size:22px;line-height:1;color:var(--grn,#17a562)">visibility_off</span>
+        <div style="font-size:16.5px;font-weight:700;margin-top:12px">The queue is blind</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--mut,#757575);margin-top:6px">Reviewers triage from initials, country and document type. Nothing is decrypted to build the list — only when one case is deliberately opened.</div>
+      </div>
+      <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:22px">
+        <span style="font-family:'Material Symbols Sharp';font-size:22px;line-height:1;color:var(--grn,#17a562)">receipt_long</span>
+        <div style="font-size:16.5px;font-weight:700;margin-top:12px">Every read is logged</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--mut,#757575);margin-top:6px">Opening a submission writes an audit entry naming the reviewer, the case and the time. Withdrawing destroys the sealed record outright.</div>
+      </div>
+    </div>
+
+    <!-- Honest limits. Stated plainly rather than buried. -->
+    <div style="margin-top:16px;border:1px dotted var(--dt2,#c6c6c6);border-radius:18px;padding:20px 22px">
+      <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">info</span>WHAT THIS DOES NOT CLAIM</div>
+      <div style="font-size:13px;line-height:1.7;color:var(--mut,#757575);margin-top:10px">Osmo Assure is <b>not end-to-end encrypted</b>. A reviewer has to read your documents to verify them, so the server necessarily holds the key. What encryption buys you is that a stolen database dump is useless on its own, and that no part of the app can show your details by accident. Anyone who controls both the database and the key material could read submissions — which is why every read is audited, and why a deployment handling real identity documents should keep the key outside the database entirely. The line below says which way this deployment is configured.</div>
+      <div data-slot="assure.keyNote" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.6;letter-spacing:.04em;color:var(--red,#c47b10);margin-top:10px"></div>
+    </div>
+
+    <!-- ------------------------------------------------------------- portal -->
+    <div data-slot="assure.portal" style="display:none">
+      <div style="display:flex;align-items:baseline;gap:14px;border-top:1px dotted var(--dt2,#c6c6c6);margin-top:clamp(30px,5vw,52px);padding-top:26px">
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:20px">02</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.16em;color:var(--mut,#757575)">YOUR SUBMISSION</div>
+      </div>
+
+      <!-- current submission -->
+      <div data-slot="assure.current" style="display:none;background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:22px;margin-top:22px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div data-slot="assure.curChip" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;border-radius:100px;padding:5px 14px;border:1px solid var(--dt,#d9d9d9);color:var(--mut,#757575)">PENDING</div>
+          <div data-slot="assure.curDoc" style="font-size:15px;font-weight:600">—</div>
+          <div data-slot="assure.curWithdraw" data-action="assureWithdraw" role="button" tabindex="0" style="display:none;margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;font-weight:600;cursor:pointer;border:1px solid var(--dt,#d9d9d9);border-radius:100px;padding:7px 14px;color:var(--mut,#757575)" class="obh-2">WITHDRAW</div>
+        </div>
+        <div data-slot="assure.curMeta" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fnt,#a3a3a3);margin-top:10px;letter-spacing:.06em">—</div>
+        <div data-slot="assure.curNote" style="display:none;font-size:13.5px;line-height:1.6;color:var(--ink,#0a0a0a);background:var(--bg,#f4f4f4);border-radius:12px;padding:12px 14px;margin-top:12px"></div>
+      </div>
+
+      <!-- submission form -->
+      <div data-slot="assure.form" style="display:none;background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:20px;padding:22px;margin-top:14px">
+        <div style="font-size:16.5px;font-weight:700">Verify your identity</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--mut,#757575);margin-top:6px">Enter the details exactly as they appear on your document. They are sealed the moment they reach the server.</div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px">
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:6px">FULL LEGAL NAME</div>
+            <input data-slot="assure.fullName" type="text" placeholder="As printed on your document" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px" />
+          </div>
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:6px">DATE OF BIRTH</div>
+            <input data-slot="assure.dob" type="date" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px" />
+          </div>
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:6px">ISSUING COUNTRY</div>
+            <input data-slot="assure.country" type="text" maxlength="2" placeholder="GB" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px;text-transform:uppercase" />
+          </div>
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:6px">DOCUMENT TYPE</div>
+            <select data-slot="assure.docType" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px;cursor:pointer"></select>
+          </div>
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:6px">DOCUMENT NUMBER</div>
+            <input data-slot="assure.docNumber" type="text" placeholder="Document number" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px" />
+          </div>
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:6px">RESIDENTIAL ADDRESS (OPTIONAL)</div>
+            <input data-slot="assure.address" type="text" placeholder="Street, city, postcode" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--dt,#d9d9d9);border-radius:12px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px" />
+          </div>
+        </div>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;margin-top:18px;cursor:pointer">
+          <input data-slot="assure.consent" type="checkbox" style="margin-top:3px;width:16px;height:16px;flex:0 0 auto;accent-color:var(--ink,#0a0a0a);cursor:pointer" />
+          <span style="font-size:12.5px;line-height:1.65;color:var(--mut,#757575)">I consent to Osmo Assure processing these details to verify my identity, and I understand a reviewer will read them once to make that decision. I can withdraw a pending submission at any time, which erases the sealed record.</span>
+        </label>
+
+        <div data-slot="assure.submit" data-action="assureSubmit" role="button" tabindex="0" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:18px;padding:13px 0;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3"><span style="font-family:'Material Symbols Sharp';font-size:16px;line-height:1">encrypted</span>Seal and submit</div>
+      </div>
+
+      <!-- history -->
+      <div data-slot="assure.historyWrap" style="display:none;margin-top:14px;border:1px dotted var(--dt2,#c6c6c6);border-radius:18px;padding:16px 22px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575)">EARLIER SUBMISSIONS</div>
+        <div data-list="assure.history">
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px dotted var(--dt2,#c6c6c6);flex-wrap:wrap">
+            <div data-slot="hChip" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;border-radius:100px;padding:4px 11px;border:1px solid var(--dt,#d9d9d9);color:var(--mut,#757575)">—</div>
+            <div data-slot="hDoc" style="font-size:13.5px">—</div>
+            <div data-slot="hDate" style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--fnt,#a3a3a3)">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- signed-out call to action -->
+    <div data-slot="assure.signedOut" style="display:none;margin-top:clamp(30px,5vw,52px);border-top:1px dotted var(--dt2,#c6c6c6);padding-top:26px">
+      <div style="background:var(--sf,#fff);border:1px dashed var(--dt2,#c6c6c6);border-radius:20px;padding:clamp(28px,4vw,44px);text-align:center">
+        <div style="font-family:'Doto',monospace;font-weight:900;font-size:clamp(22px,3.2vw,32px);letter-spacing:.02em">VERIFY FROM YOUR VAULT</div>
+        <div style="font-size:13.5px;line-height:1.6;color:var(--mut,#757575);margin-top:10px;max-width:520px;margin-left:auto;margin-right:auto">Osmo Assure is part of your OsmoBank account. Sign in — or open a vault — and the verification portal appears on this page.</div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">
+          <div data-action="goLogin" role="button" tabindex="0" style="padding:13px 28px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer" class="obh-3">Log in</div>
+          <div data-action="goSignup" role="button" tabindex="0" style="padding:13px 28px;border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;background:var(--sf,#fff)" class="obh-2">Open a vault</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -10,11 +10,13 @@
       <div data-action="adminTabMembers" role="button" tabindex="0" style="cursor:pointer;opacity:.6" class="obh-12">MEMBERS</div>
       <div data-action="adminTabVentures" role="button" tabindex="0" style="cursor:pointer;opacity:.6" class="obh-12">VENTURES</div>
       <div data-action="adminTabPayouts" role="button" tabindex="0" style="cursor:pointer;opacity:.6" class="obh-12">PAYOUTS</div>
+      <div data-action="adminTabKyc" role="button" tabindex="0" style="cursor:pointer;opacity:.6;display:flex;align-items:center;gap:5px" class="obh-12">KYC<span data-slot="admin.kycTabCount" style="display:none;font-size:10px;background:var(--red,#c47b10);color:#fff;border-radius:100px;padding:1px 7px"></span></div>
       <div data-action="adminTabProposals" role="button" tabindex="0" style="cursor:pointer;opacity:.6" class="obh-12">PROPOSALS</div>
-      <div data-action="adminTabRisk" role="button" tabindex="0" style="cursor:pointer;opacity:.6" class="obh-12">RISK</div>
+      <div data-action="adminTabRisk" role="button" tabindex="0" style="cursor:pointer;opacity:.6;display:flex;align-items:center;gap:5px" class="obh-12">RISK<span data-slot="admin.riskTabCount" style="display:none;font-size:10px;background:var(--red,#c47b10);color:#fff;border-radius:100px;padding:1px 7px"></span></div>
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562);display:flex;align-items:center;gap:6px"><span style="width:5px;height:5px;border-radius:50%;background:var(--grn,#17a562);display:inline-block"></span>ALL SYSTEMS NOMINAL</div>
+      <!-- Bound to the real risk signals (GET /api/admin/risk), not a fixed banner. -->
+      <div data-action="adminTabRisk" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--grn,#17a562);display:flex;align-items:center;gap:6px;cursor:pointer"><span data-slot="admin.healthDot" style="width:5px;height:5px;border-radius:50%;background:var(--grn,#17a562);display:inline-block"></span><span data-slot="admin.health">CHECKING SIGNALS…</span></div>
       <div data-action="goDash" role="button" tabindex="0" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;cursor:pointer;border:1px solid color-mix(in srgb,var(--inv,#fff) 30%,transparent);border-radius:100px;padding:6px 12px" class="obh-10">EXIT ADMIN</div>
       <div data-slot="avatarInitials" style="width:32px;height:32px;border-radius:50%;background:var(--inv,#fff);color:var(--ink,#0a0a0a);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">AO</div>
     </div>

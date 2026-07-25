@@ -10,6 +10,7 @@
       <a href="#ventures" class="obh-0">VENTURES</a>
       <a href="#dao" class="obh-0">DAO</a>
       <div data-action="goFund" role="button" tabindex="0" style="cursor:pointer" class="obh-0">FUNDRAISER</div>
+      <div data-action="goAssure" role="button" tabindex="0" style="cursor:pointer;display:flex;align-items:center;gap:5px" class="obh-0"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1;vertical-align:-2px">encrypted</span>KYC</div>
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
       <div data-action="toggleTheme" role="button" tabindex="0" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;color:var(--mut,#757575);cursor:pointer;border:1px solid var(--hr,#e4e4e4);border-radius:100px;padding:6px 12px" class="obh-1"><span style="font-family:'Material Symbols Sharp';font-size:15px;line-height:1">contrast</span><span data-text="themeLabel"></span></div>
@@ -173,24 +174,34 @@
     </div>
   </div>
 
-  <!-- Venture floor: /api/ventures is auth-gated, so the whole section stays
-       hidden until a signed-in fetch succeeds. The single card below is only a
-       row template for ctx.list() — its neutral values never render. -->
+  <!-- Venture floor. /api/ventures reads publicly, so visitors see the pipeline
+       too: ventures open for investment now, and approved ones with a future
+       opening date. The section hides entirely when the floor is empty; the
+       single card below is only a row template for ctx.list(). -->
   <div id="ventures" data-slot="home.venturesSection" style="display:none;max-width:1240px;margin:0 auto;padding:clamp(16px,2vw,24px) clamp(20px,4vw,48px)">
-    <div style="display:flex;align-items:baseline;gap:14px;border-top:1px dotted var(--dt2,#c6c6c6);padding-top:26px">
+    <div style="display:flex;align-items:baseline;gap:14px;border-top:1px dotted var(--dt2,#c6c6c6);padding-top:26px;flex-wrap:wrap">
       <div style="font-family:'Doto',monospace;font-weight:900;font-size:20px">04</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.16em;color:var(--mut,#757575)">LIVE ON THE VENTURE FLOOR</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.16em;color:var(--mut,#757575)">ON THE VENTURE FLOOR</div>
+      <div data-slot="home.ventureCounts" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em;color:var(--fnt,#a3a3a3)"></div>
       <div data-action="goVentures" role="button" tabindex="0" style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.08em;cursor:pointer" class="obh-4">SEE ALL →</div>
     </div>
     <div data-list="home.ventures" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:22px">
       <div style="background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px">
-        <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--mut,#757575)"><span data-slot="dot" style="width:7px;height:7px;border-radius:50%;background:var(--dt2,#c6c6c6);display:inline-block"></span><span data-slot="sector"></span></div>
-          <div data-slot="raising" style="display:none;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--red,#e0342b)"><span style="width:5px;height:5px;border-radius:50%;background:var(--red,#e0342b);display:inline-block"></span>RAISING</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div data-slot="phase" style="display:none;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em"><span data-slot="phaseDot" style="width:5px;height:5px;border-radius:50%;display:inline-block"></span><span data-slot="phaseText"></span></div>
+            <div data-slot="raising" style="display:none;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--red,#e0342b)"><span style="width:5px;height:5px;border-radius:50%;background:var(--red,#e0342b);display:inline-block"></span>RAISING</div>
+          </div>
         </div>
         <div data-slot="name" style="font-size:16px;font-weight:700;margin-top:10px">—</div>
         <div data-slot="blurb" style="font-size:12.5px;color:var(--mut,#757575);margin-top:2px"></div>
         <div style="display:flex;align-items:baseline;gap:6px;margin-top:12px"><span data-slot="apy" style="font-family:'Doto',monospace;font-weight:900;font-size:30px">—</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:var(--mut,#757575)">% APY</span></div>
+        <div style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mut,#757575);margin-bottom:6px"><span data-slot="filled">—</span><span data-slot="min">—</span></div>
+          <div style="position:relative;height:7px;background-image:radial-gradient(circle,var(--dt,#d9d9d9) 1.4px,transparent 1.9px);background-size:8px 7px"><div data-slot="meterFill" style="position:absolute;left:0;top:0;bottom:0;width:0%;background-image:radial-gradient(circle,var(--ink,#0a0a0a) 1.4px,transparent 1.9px);background-size:8px 7px"></div></div>
+        </div>
+        <div data-slot="when" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--fnt,#a3a3a3);margin-top:10px"></div>
       </div>
     </div>
   </div>
@@ -248,6 +259,7 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:10px">
             <div style="color:var(--fnt,#a3a3a3);font-size:11px;letter-spacing:.16em">ACCESS</div>
+            <div data-action="goAssure" role="button" tabindex="0" style="cursor:pointer;color:var(--mut,#757575)" class="obh-0">OSMO ASSURE · KYC</div>
             <div data-action="goLogin" role="button" tabindex="0" style="cursor:pointer;color:var(--mut,#757575)" class="obh-0">LOG IN</div>
             <div data-action="goSignup" role="button" tabindex="0" style="cursor:pointer;color:var(--mut,#757575)" class="obh-0">SIGN UP</div>
             <div data-action="adminLogin" role="button" tabindex="0" style="cursor:pointer;color:var(--mut,#757575)" class="obh-0">ADMIN CONSOLE</div>

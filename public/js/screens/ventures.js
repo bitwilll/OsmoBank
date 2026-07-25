@@ -145,9 +145,15 @@ function renderCards(root, ctx) {
   if (!list) return;
   list.clear();
 
-  const sorted = st.data.slice().sort((a, b) => (
-    st.sort === 'desc' ? Number(b.apy) - Number(a.apy) : Number(a.apy) - Number(b.apy)
-  ));
+  // Group by lifecycle first (what you can act on now, then what is coming,
+  // then what is done), and sort by APY inside each group.
+  const PHASE_ORDER = { live: 0, upcoming: 1, pending: 2, closed: 3, rejected: 4 };
+  const sorted = st.data.slice().sort((a, b) => {
+    const pa = PHASE_ORDER[a.phase] ?? 9;
+    const pb = PHASE_ORDER[b.phase] ?? 9;
+    if (pa !== pb) return pa - pb;
+    return st.sort === 'desc' ? Number(b.apy) - Number(a.apy) : Number(a.apy) - Number(b.apy);
+  });
 
   const meNow = ctx.me();
   const role = meNow?.user?.role;
@@ -196,6 +202,8 @@ function fillCard(row, v, root, ctx, roles) {
   }
 
   // ---- status/badges --------------------------------------------------------
+  // The lifecycle phase (upcoming / live / closed) comes from the server's own
+  // dates, so the badge can never disagree with whether staking is allowed.
   const badgeAmber = slot(row, 'badgeAmber');
   const badgeAmberText = slot(row, 'badgeAmberText');
   const badgeMut = slot(row, 'badgeMut');
@@ -204,6 +212,14 @@ function fillCard(row, v, root, ctx, roles) {
   if (v.status === 'pending') {
     badgeAmber.style.display = 'flex';
     badgeAmberText.textContent = 'PENDING REVIEW';
+  } else if (v.phase === 'upcoming') {
+    badgeAmber.style.display = 'flex';
+    badgeAmberText.textContent = v.daysUntilOpen != null
+      ? `OPENS IN ${v.daysUntilOpen} DAY${v.daysUntilOpen === 1 ? '' : 'S'}`
+      : 'UPCOMING';
+  } else if (v.phase === 'closed') {
+    badgeMut.style.display = '';
+    badgeMut.textContent = 'CLOSED';
   } else if (v.badge) {
     if (/vote/i.test(v.badge)) {
       badgeAmber.style.display = 'flex';
@@ -214,24 +230,54 @@ function fillCard(row, v, root, ctx, roles) {
     }
   }
 
+  // ---- lifecycle dates ------------------------------------------------------
+  // Rendered under the meter so an upcoming venture states when it opens rather
+  // than showing a stalled-looking 0% raise with no explanation.
+  let when = row.querySelector('[data-when]');
+  if (!when) {
+    when = document.createElement('div');
+    when.setAttribute('data-when', '1');
+    when.style.cssText = "font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--fnt,#a3a3a3);margin-top:10px";
+    slot(row, 'min').closest('div').parentElement.appendChild(when);
+  }
+  const dates = [];
+  if (v.opensAt) dates.push(`OPENS ${fmt.date(v.opensAt).toUpperCase()}`);
+  if (v.closesAt) dates.push(`CLOSES ${fmt.date(v.closesAt).toUpperCase()}`);
+  when.textContent = dates.join(' · ');
+  when.style.display = dates.length ? '' : 'none';
+
   // ---- invest (own handler; drop the static demo data-action) ---------------
   const investBtn = slot(row, 'investBtn');
   investBtn.removeAttribute('data-action');
-  investBtn.onclick = () => {
-    const bal = Number(ctx.me()?.balances?.USDC || 0);
-    const remaining = Math.max(0, Number(v.targetAmount || 0) - Number(v.raised || 0));
-    ctx.openInvest({
-      name: v.name,
-      apy: apyStr,
-      max: Math.min(bal, remaining),
-      onConfirm: async (amount) => {
-        await ctx.api.post(`/api/ventures/${v.id}/invest`, { amount });
-        await ctx.refreshMe();
-        await fill(root, ctx);
-        ctx.toast(`STAKED IN ${String(v.name).toUpperCase()} · ${fmt.usd(amount)}`);
-      },
-    });
-  };
+  const investable = v.investable !== false && v.status === 'active';
+  if (!investable) {
+    // Not open for staking: say why, and make the control unclickable rather
+    // than letting it open a modal the server would reject.
+    investBtn.onclick = null;
+    investBtn.style.cursor = 'not-allowed';
+    investBtn.style.opacity = '.45';
+    investBtn.textContent = v.phase === 'upcoming'
+      ? (v.opensAt ? `Opens ${fmt.date(v.opensAt)}` : 'Not open yet')
+      : (v.phase === 'closed' ? 'Closed' : 'Awaiting approval');
+  } else {
+    investBtn.style.cursor = 'pointer';
+    investBtn.style.opacity = '';
+    investBtn.onclick = () => {
+      const bal = Number(ctx.me()?.balances?.USDC || 0);
+      const remaining = Math.max(0, Number(v.targetAmount || 0) - Number(v.raised || 0));
+      ctx.openInvest({
+        name: v.name,
+        apy: apyStr,
+        max: Math.min(bal, remaining),
+        onConfirm: async (amount) => {
+          await ctx.api.post(`/api/ventures/${v.id}/invest`, { amount });
+          await ctx.refreshMe();
+          await fill(root, ctx);
+          ctx.toast(`STAKED IN ${String(v.name).toUpperCase()} · ${fmt.usd(amount)}`);
+        },
+      });
+    };
+  }
 
   // ---- distribute payout (venture manager or admin only) --------------------
   const payoutBtn = slot(row, 'payoutBtn');
@@ -315,6 +361,16 @@ function openListModal(root, ctx) {
   const target = numInput('2400000');
   m.body.appendChild(target);
 
+  // Optional lifecycle dates. Left blank, the venture opens as soon as it is
+  // approved and stays open until an operator closes it.
+  m.body.appendChild(monoLabel('OPENS (OPTIONAL)'));
+  const opens = el('input', inputCss); opens.type = 'date';
+  m.body.appendChild(opens);
+
+  m.body.appendChild(monoLabel('CLOSES (OPTIONAL)'));
+  const closes = el('input', inputCss); closes.type = 'date';
+  m.body.appendChild(closes);
+
   const submit = el('div', btnCss, 'Submit for DAO review');
   submit.setAttribute('role', 'button');
   submit.setAttribute('tabindex', '0');
@@ -327,6 +383,8 @@ function openListModal(root, ctx) {
         apy: Number(apy.value || 0),
         minAmount: Number(min.value || 0),
         targetAmount: Number(target.value || 0),
+        opensAt: opens.value || null,
+        closesAt: closes.value || null,
       });
       m.close();
       await fill(root, ctx);

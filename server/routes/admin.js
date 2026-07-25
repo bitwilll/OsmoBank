@@ -3,6 +3,9 @@ import {
   ApiError, str, num, oneOf, round2, requireRole, publicUser,
 } from '../lib/util.js';
 import { computeStats, readStatOverrides, STAT_OVERRIDE_FIELDS } from './dao.js';
+import {
+  ventureView, ventureFields, assertVentureShape, VENTURE_STATUSES, VENTURE_WITH_AGGREGATES,
+} from './ventures.js';
 
 const ROLES = ['member', 'manager', 'admin'];
 const STATUSES = ['active', 'review', 'frozen'];
@@ -33,7 +36,9 @@ function quarterEnd() {
   return new Date(Date.UTC(now.getUTCFullYear(), q * 3 + 3, 0)).toISOString().slice(0, 10);
 }
 
-const ventureView = (v) => ({
+// Compact shape for the listing queue and approve/reject responses; the richer
+// lifecycle view (phase, dates, raised) comes from ./ventures.js.
+const queueVentureView = (v) => ({
   id: v.id, name: v.name, sector: v.sector, blurb: v.blurb, apy: v.apy,
   minAmount: v.min_amount, targetAmount: v.target_amount, status: v.status,
   badge: v.badge, managerId: v.manager_id, payoutFreq: v.payout_freq,
@@ -71,6 +76,185 @@ export default function mount(app) {
     } catch (e) { next(e); }
   });
 
+  // ---- venture management ----------------------------------------------------
+  // Full lifecycle for the console's Ventures tab: every venture regardless of
+  // status, plus edits and status transitions. Creation stays on
+  // POST /api/ventures (managers list their own; admins may list any).
+  app.get('/api/admin/ventures', requireRole('admin', 'manager'), async (req, res, next) => {
+    try {
+      const rows = await db.prepare(`${VENTURE_WITH_AGGREGATES} ORDER BY v.id DESC`).all(req.user.id);
+      const now = Date.now();
+      const ventures = rows.map((r) => ({
+        ...ventureView(r, now),
+        holders: 0,
+        createdAt: r.created_at,
+      }));
+      // Holder counts in one pass rather than a query per venture.
+      const counts = await db.prepare(
+        "SELECT venture_id, COUNT(DISTINCT user_id) AS n FROM investments WHERE status = 'active' GROUP BY venture_id").all();
+      const byId = new Map(counts.map((c) => [Number(c.venture_id), Number(c.n)]));
+      for (const v of ventures) v.holders = byId.get(v.id) ?? 0;
+      res.json({ ventures });
+    } catch (e) { next(e); }
+  });
+
+  app.patch('/api/admin/ventures/:id', requireRole('admin'), async (req, res, next) => {
+    try {
+      const id = num(req.params.id, { int: true, min: 1, name: 'id' });
+      const fields = ventureFields(req.body, { partial: true });
+      if (req.body?.status !== undefined) {
+        fields.status = oneOf(String(req.body.status), VENTURE_STATUSES, 'status');
+      }
+      if (!Object.keys(fields).length) throw new ApiError(400, 'Nothing to update');
+
+      const updated = await tx(async () => {
+        const current = await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
+        if (!current) throw new ApiError(404, 'Venture not found');
+        // Validate the merged shape, so a partial edit cannot create an
+        // impossible venture (target below minimum, closing before opening).
+        assertVentureShape({ ...current, ...fields });
+        if (fields.status === 'closed' && current.status !== 'closed') {
+          const open = await db.prepare(
+            "SELECT COUNT(*) AS n FROM investments WHERE venture_id = ? AND status = 'active'").get(id);
+          if (Number(open.n) > 0 && req.body?.force !== true) {
+            throw new ApiError(409, `${open.n} member stake(s) are still active — exit them first, or resend with force`);
+          }
+        }
+        const cols = Object.keys(fields);
+        await db.prepare(`UPDATE ventures SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`)
+          .run(...cols.map((c) => fields[c]), id);
+        await audit(req.user.id, 'venture.update', `venture:${id}`,
+          cols.map((c) => `${c}=${fields[c] === null ? '—' : fields[c]}`).join(' · ').slice(0, 400));
+        return await db.prepare(`${VENTURE_WITH_AGGREGATES} WHERE v.id = ?`).get(req.user.id, id);
+      });
+      res.json({ venture: ventureView(updated) });
+    } catch (e) { next(e); }
+  });
+
+  // ---- governance ------------------------------------------------------------
+  // Operators open votes and record outcomes. Tallies always come from real
+  // votes (routes/dao.js); nothing here can manufacture support.
+  app.post('/api/admin/proposals', requireRole('admin'), async (req, res, next) => {
+    try {
+      const title = str(req.body?.title, { min: 4, max: 160, name: 'title' });
+      const blurb = req.body?.blurb ? str(req.body.blurb, { min: 1, max: 800, name: 'blurb' }) : '';
+      const quorumPct = req.body?.quorumPct !== undefined
+        ? num(req.body.quorumPct, { min: 1, max: 100, name: 'quorumPct' }) : 30;
+      const days = req.body?.days !== undefined
+        ? num(req.body.days, { min: 1, max: 90, int: true, name: 'days' }) : 7;
+      const code = req.body?.code
+        ? str(req.body.code, { min: 3, max: 20, name: 'code', pattern: /^[A-Za-z0-9-]+$/ }).toUpperCase()
+        : null;
+
+      const proposal = await tx(async () => {
+        // Auto-number as OSM-0xx from the highest existing number.
+        let finalCode = code;
+        if (!finalCode) {
+          const rows = await db.prepare("SELECT code FROM proposals WHERE code LIKE 'OSM-%'").all();
+          const max = rows.reduce((m, r) => Math.max(m, Number(String(r.code).slice(4)) || 0), 0);
+          finalCode = `OSM-${String(max + 1).padStart(3, '0')}`;
+        }
+        if (await db.prepare('SELECT 1 FROM proposals WHERE code = ?').get(finalCode)) {
+          throw new ApiError(409, `Proposal ${finalCode} already exists`);
+        }
+        const id = Number((await db.prepare(
+          `INSERT INTO proposals (code, title, blurb, status, quorum_pct, ends_at)
+           VALUES (?,?,?,'live',?, datetime('now', ?))`)
+          .run(finalCode, title, blurb, quorumPct, `+${days} days`)).lastInsertRowid);
+        await audit(req.user.id, 'proposal.create', `proposal:${id}`, `${finalCode} · ${title}`);
+        return await db.prepare('SELECT * FROM proposals WHERE id = ?').get(id);
+      });
+      res.status(201).json({ proposal });
+    } catch (e) { next(e); }
+  });
+
+  app.patch('/api/admin/proposals/:id', requireRole('admin'), async (req, res, next) => {
+    try {
+      const id = num(req.params.id, { int: true, min: 1, name: 'id' });
+      const fields = {};
+      if (req.body?.title !== undefined) fields.title = str(req.body.title, { min: 4, max: 160, name: 'title' });
+      if (req.body?.blurb !== undefined) fields.blurb = str(req.body.blurb, { min: 0, max: 800, name: 'blurb' });
+      if (req.body?.quorumPct !== undefined) fields.quorum_pct = num(req.body.quorumPct, { min: 1, max: 100, name: 'quorumPct' });
+      if (req.body?.status !== undefined) fields.status = oneOf(String(req.body.status), ['live', 'passed', 'rejected'], 'status');
+      if (!Object.keys(fields).length && req.body?.days === undefined) throw new ApiError(400, 'Nothing to update');
+
+      const proposal = await tx(async () => {
+        const current = await db.prepare('SELECT * FROM proposals WHERE id = ?').get(id);
+        if (!current) throw new ApiError(404, 'Proposal not found');
+        const cols = Object.keys(fields);
+        if (cols.length) {
+          await db.prepare(`UPDATE proposals SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`)
+            .run(...cols.map((c) => fields[c]), id);
+        }
+        if (req.body?.days !== undefined) {
+          const days = num(req.body.days, { min: 1, max: 90, int: true, name: 'days' });
+          await db.prepare("UPDATE proposals SET ends_at = datetime('now', ?) WHERE id = ?").run(`+${days} days`, id);
+        }
+        await audit(req.user.id, 'proposal.update', `proposal:${id}`,
+          [...cols.map((c) => `${c}=${fields[c]}`), req.body?.days !== undefined ? `days=${req.body.days}` : null]
+            .filter(Boolean).join(' · ').slice(0, 400));
+        return await db.prepare('SELECT * FROM proposals WHERE id = ?').get(id);
+      });
+      res.json({ proposal });
+    } catch (e) { next(e); }
+  });
+
+  // ---- risk ------------------------------------------------------------------
+  /**
+   * Live risk signals, every one computed from real rows. Each signal carries
+   * its own count and a severity so the console can rank them; an empty list is
+   * an honest "nothing to action" rather than a fabricated dashboard.
+   */
+  app.get('/api/admin/risk', requireRole('admin'), async (_req, res, next) => {
+    try {
+      const one = async (sql, args = []) => Number((await db.prepare(sql).get(...args))?.n ?? 0);
+      const [frozen, review, kycPending, kycOldest, bigTransfers, overTarget,
+        closingSoon, openTickets, staleLive, multiSession] = await Promise.all([
+        one("SELECT COUNT(*) AS n FROM users WHERE status = 'frozen'"),
+        one("SELECT COUNT(*) AS n FROM users WHERE status = 'review'"),
+        one("SELECT COUNT(*) AS n FROM kyc_submissions WHERE status = 'pending'"),
+        one("SELECT CAST(julianday('now') - julianday(MIN(created_at)) AS INTEGER) AS n FROM kyc_submissions WHERE status = 'pending'"),
+        one("SELECT COUNT(*) AS n FROM transfers WHERE amount >= 10000 AND created_at >= datetime('now','-1 day')"),
+        one(`SELECT COUNT(*) AS n FROM ventures v WHERE v.status = 'active'
+               AND (SELECT COALESCE(SUM(amount),0) FROM investments i WHERE i.venture_id = v.id AND i.status = 'active') > v.target_amount`),
+        one("SELECT COUNT(*) AS n FROM ventures WHERE status = 'active' AND closes_at IS NOT NULL AND date(closes_at) <= date('now','+7 days') AND date(closes_at) >= date('now')"),
+        one("SELECT COUNT(*) AS n FROM support_tickets WHERE status = 'open'"),
+        one("SELECT COUNT(*) AS n FROM proposals WHERE status = 'live' AND ends_at IS NOT NULL AND datetime(ends_at) < datetime('now')"),
+        one(`SELECT COUNT(*) AS n FROM (SELECT user_id FROM sessions WHERE expires_at > datetime('now')
+               GROUP BY user_id HAVING COUNT(*) >= 3)`),
+      ]);
+
+      const signals = [
+        { key: 'kyc_backlog', label: 'KYC submissions awaiting review', count: kycPending,
+          severity: kycPending === 0 ? 'ok' : (kycOldest >= 3 ? 'high' : 'medium'),
+          detail: kycPending ? `oldest waiting ${kycOldest} day(s)` : 'queue clear', action: 'kyc' },
+        { key: 'accounts_review', label: 'Accounts held for review', count: review,
+          severity: review === 0 ? 'ok' : 'medium', detail: 'cannot transact until cleared', action: 'members' },
+        { key: 'accounts_frozen', label: 'Frozen accounts', count: frozen,
+          severity: frozen === 0 ? 'ok' : 'low', detail: 'access suspended', action: 'members' },
+        { key: 'large_transfers', label: 'Transfers ≥ $10,000 (24h)', count: bigTransfers,
+          severity: bigTransfers === 0 ? 'ok' : 'medium', detail: 'review for source of funds', action: null },
+        { key: 'over_target', label: 'Ventures raised past target', count: overTarget,
+          severity: overTarget === 0 ? 'ok' : 'high', detail: 'close or raise the target', action: 'ventures' },
+        { key: 'closing_soon', label: 'Ventures closing within 7 days', count: closingSoon,
+          severity: closingSoon === 0 ? 'ok' : 'low', detail: 'confirm the closing plan', action: 'ventures' },
+        { key: 'stale_votes', label: 'Live votes past their end date', count: staleLive,
+          severity: staleLive === 0 ? 'ok' : 'high', detail: 'record the outcome', action: 'proposals' },
+        { key: 'open_tickets', label: 'Open support tickets', count: openTickets,
+          severity: openTickets === 0 ? 'ok' : 'medium', detail: 'members awaiting a reply', action: 'support' },
+        { key: 'multi_session', label: 'Accounts live on 3+ devices', count: multiSession,
+          severity: multiSession === 0 ? 'ok' : 'low', detail: 'possible shared credentials', action: 'members' },
+      ];
+      const rank = { high: 3, medium: 2, low: 1, ok: 0 };
+      signals.sort((a, b) => rank[b.severity] - rank[a.severity] || b.count - a.count);
+      res.json({
+        signals,
+        needsAction: signals.filter((s) => s.severity !== 'ok').length,
+        checkedAt: new Date().toISOString(),
+      });
+    } catch (e) { next(e); }
+  });
+
   app.get('/api/admin/overview', requireRole('admin'), async (req, res, next) => {
     try {
       const members = (await db.prepare('SELECT COUNT(*) AS n FROM users').get()).n;
@@ -82,7 +266,11 @@ export default function mount(app) {
         "SELECT COALESCE(SUM(ABS(delta)),0) AS s FROM ledger WHERE currency = 'USDC' AND created_at >= datetime('now','-1 day')").get()).s);
       const transfers24h = (await db.prepare(
         "SELECT COUNT(*) AS n FROM transfers WHERE created_at >= datetime('now','-1 day')").get()).n;
-      const kyc = (await db.prepare("SELECT COUNT(*) AS n FROM users WHERE status = 'review'").get()).n;
+      // "KYC" on the overview means work waiting in the Osmo Assure queue, so it
+      // agrees with the KYC tab and the risk board. Accounts merely held for
+      // review are counted separately (see the accounts_review risk signal).
+      const kyc = Number((await db.prepare(
+        "SELECT COUNT(*) AS n FROM kyc_submissions WHERE status = 'pending'").get()).n);
 
       const listingQueue = (await db.prepare(
         "SELECT id, name, blurb, status FROM ventures WHERE status = 'pending' ORDER BY created_at ASC, id ASC").all())
@@ -104,12 +292,19 @@ export default function mount(app) {
           estTotal: round2((v.raised * v.apy) / 100 / 4), holders: v.holders,
         }));
 
+      // Verification comes from the member's most recent Osmo Assure submission,
+      // not from their account status: an ordinary active account that has never
+      // submitted anything is "none", never a tick.
       const newestMembers = (await db.prepare(
-        'SELECT id, handle, role, status, created_at FROM users ORDER BY created_at DESC, id DESC LIMIT 5').all())
+        `SELECT u.id, u.handle, u.role, u.status, u.created_at,
+                (SELECT k.status FROM kyc_submissions k
+                  WHERE k.user_id = u.id ORDER BY k.id DESC LIMIT 1) AS kyc_status
+           FROM users u ORDER BY u.created_at DESC, u.id DESC LIMIT 5`).all())
         .map((u) => ({
           id: u.id, handle: u.handle, role: u.role, memberNo: MEMBER_NO_BASE + u.id,
           joinedAgo: joinedAgo(u.created_at),
-          kyc: u.status === 'review' ? 'pending' : 'verified',
+          kyc: u.kyc_status === 'approved' ? 'verified'
+            : (u.kyc_status === 'pending' ? 'pending' : (u.kyc_status ?? 'none')),
           status: u.status,
         }));
 
@@ -215,7 +410,7 @@ export default function mount(app) {
           managerId !== undefined ? `managerId=${managerId}` : null);
         return await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
       });
-      res.json({ venture: ventureView(venture) });
+      res.json({ venture: queueVentureView(venture) });
     } catch (e) { next(e); }
   });
 
@@ -230,7 +425,7 @@ export default function mount(app) {
         await audit(req.user.id, 'venture.reject', `venture:${id}`);
         return await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
       });
-      res.json({ venture: ventureView(venture) });
+      res.json({ venture: queueVentureView(venture) });
     } catch (e) { next(e); }
   });
 

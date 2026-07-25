@@ -237,6 +237,24 @@ CREATE TABLE IF NOT EXISTS card_provisions (
   UNIQUE(card_id, platform));
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-- Osmo Assure identity verification. Nothing identifying is stored in the
+-- clear: the sealed column is an AES-256-GCM envelope (see lib/vault.js). The
+-- columns beside it are the minimum a reviewer needs to triage a queue — none
+-- of them identifies a person on their own.
+CREATE TABLE IF NOT EXISTS kyc_submissions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','withdrawn')),
+  sealed TEXT NOT NULL,
+  doc_type TEXT NOT NULL,
+  country TEXT NOT NULL,
+  initials TEXT NOT NULL DEFAULT '',
+  reviewer_id INTEGER REFERENCES users(id),
+  reviewed_at TEXT, decision_note TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_kyc_user ON kyc_submissions(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_kyc_status ON kyc_submissions(status, id);
 CREATE TABLE IF NOT EXISTS support_tickets (
   id INTEGER PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
@@ -523,11 +541,31 @@ async function seedStatOverridesFromEnv() {
   }
 }
 
+/* Additive column migrations. SQLite/libSQL cannot alter a CREATE TABLE IF NOT
+ * EXISTS definition that already ran, so new nullable columns are added here.
+ * Idempotent: existing columns are detected and skipped. */
+const COLUMN_MIGRATIONS = [
+  // A venture's real timetable, so "upcoming" and "live" are derived from dates
+  // rather than an operator typing a badge string nobody enforces.
+  ['ventures', 'opens_at', 'TEXT'],
+  ['ventures', 'closes_at', 'TEXT'],
+];
+
+async function migrateColumns() {
+  for (const [table, column, type] of COLUMN_MIGRATIONS) {
+    const cols = await db.prepare(`PRAGMA table_info(${table})`).all();
+    if (cols.some((c) => c.name === column)) continue;
+    await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+    console.error(`migration: added ${table}.${column}`);
+  }
+}
+
 // ---- one-time initialisation (schema + seed) -------------------------------
 let initPromise = null;
 export function initDb() {
   if (!initPromise) initPromise = (async () => {
     await db.exec(SCHEMA);
+    await migrateColumns();
     if (process.env.OSMO_SEED !== '0') {
       const someone = await db.prepare('SELECT 1 FROM users LIMIT 1').get();
       if (!someone) {

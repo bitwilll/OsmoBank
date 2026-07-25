@@ -4,9 +4,37 @@ import {
 } from '../lib/util.js';
 
 const PAYOUT_FREQS = ['monthly', 'quarterly', 'annual'];
+const VENTURE_STATUSES = ['pending', 'active', 'closed', 'rejected'];
 
-function ventureView(row) {
+/** 'YYYY-MM-DD' (or a full timestamp) → epoch ms at UTC midnight, or null. */
+function dayMs(value) {
+  if (!value) return null;
+  const s = String(value).slice(0, 10);
+  const t = Date.parse(`${s}T00:00:00Z`);
+  return Number.isFinite(t) ? t : null;
+}
+
+/**
+ * Where a venture sits in its lifecycle, derived from real dates rather than a
+ * hand-typed badge:
+ *   pending  — submitted, awaiting operator approval (not public)
+ *   upcoming — approved and announced, opens on a future date
+ *   live     — open for investment right now
+ *   closed   — past its closing date, or closed by an operator
+ */
+function venturePhase(row, now = Date.now()) {
+  if (row.status !== 'active') return row.status === 'closed' ? 'closed' : row.status;
+  const opens = dayMs(row.opens_at);
+  const closes = dayMs(row.closes_at);
+  if (closes !== null && now >= closes + 86400000) return 'closed'; // closing day inclusive
+  if (opens !== null && now < opens) return 'upcoming';
+  return 'live';
+}
+
+function ventureView(row, now = Date.now()) {
   const raised = round2(row.raised ?? 0);
+  const phase = venturePhase(row, now);
+  const opens = dayMs(row.opens_at);
   return {
     id: row.id,
     name: row.name,
@@ -18,12 +46,55 @@ function ventureView(row) {
     raised,
     filledPct: row.target_amount > 0 ? round2((raised / row.target_amount) * 100) : 0,
     status: row.status,
+    phase,
+    opensAt: row.opens_at ?? null,
+    closesAt: row.closes_at ?? null,
+    daysUntilOpen: phase === 'upcoming' && opens !== null
+      ? Math.max(0, Math.ceil((opens - now) / 86400000)) : null,
+    investable: phase === 'live',
     badge: row.badge,
     managerId: row.manager_id,
     payoutFreq: row.payout_freq,
     youHold: round2(row.you_hold ?? 0),
   };
 }
+
+/** Shared validation for the create and edit payloads. */
+function ventureFields(body, { partial = false } = {}) {
+  const out = {};
+  const has = (k) => body?.[k] !== undefined && body[k] !== null;
+  // On create every core field is required, so a missing one is validated (and
+  // rejected with a 400) rather than skipped; a partial edit only touches what
+  // the caller actually sent.
+  const need = (k) => !partial || has(k);
+  if (need('name')) out.name = str(body?.name, { min: 2, max: 80, name: 'name' });
+  if (need('sector')) out.sector = str(body?.sector, { min: 2, max: 40, name: 'sector' }).toUpperCase();
+  if (need('blurb')) out.blurb = str(body?.blurb, { min: 1, max: 500, name: 'blurb' });
+  if (need('apy')) out.apy = num(body?.apy, { min: 0, max: 100, name: 'apy' });
+  if (need('minAmount')) out.min_amount = round2(num(body?.minAmount, { min: 0.01, max: 1e9, name: 'minAmount' }));
+  if (need('targetAmount')) out.target_amount = round2(num(body?.targetAmount, { min: 0.01, max: 1e12, name: 'targetAmount' }));
+  if (has('payoutFreq')) out.payout_freq = oneOf(body.payoutFreq, PAYOUT_FREQS, 'payoutFreq');
+  if (has('badge')) out.badge = str(body.badge, { min: 1, max: 40, name: 'badge' });
+  else if (body?.badge === null || body?.badge === '') out.badge = null;
+  for (const [key, col] of [['opensAt', 'opens_at'], ['closesAt', 'closes_at']]) {
+    if (body?.[key] === null || body?.[key] === '') { out[col] = null; continue; }
+    if (!has(key)) continue;
+    const d = str(body[key], { min: 10, max: 10, name: key, pattern: /^\d{4}-\d{2}-\d{2}$/ });
+    if (dayMs(d) === null) throw new ApiError(400, `${key} is not a real date`);
+    out[col] = d;
+  }
+  return out;
+}
+
+function assertVentureShape(v) {
+  if (v.target_amount !== undefined && v.min_amount !== undefined && v.target_amount < v.min_amount) {
+    throw new ApiError(400, 'targetAmount must be at least minAmount');
+  }
+  if (v.opens_at && v.closes_at && dayMs(v.closes_at) < dayMs(v.opens_at)) {
+    throw new ApiError(400, 'closesAt must be on or after opensAt');
+  }
+}
+
 
 const VENTURE_WITH_AGGREGATES = `
   SELECT v.*,
@@ -33,9 +104,13 @@ const VENTURE_WITH_AGGREGATES = `
               WHERE i.venture_id = v.id AND i.status = 'active' AND i.user_id = ?), 0) AS you_hold
   FROM ventures v`;
 
+export { ventureView, venturePhase, ventureFields, assertVentureShape, VENTURE_STATUSES, VENTURE_WITH_AGGREGATES };
+
 export default function mount(app) {
   // Public read: the venture floor is the DAO's storefront, and the payload
   // holds no member data — `youHold` is simply 0 for anonymous visitors.
+  // Upcoming ventures (approved, opening on a future date) are public too, so
+  // the pipeline is visible; ventures still awaiting approval are not.
   app.get('/api/ventures', async (req, res, next) => {
     try {
       const seesAll = req.user && ['admin', 'manager'].includes(req.user.role);
@@ -44,22 +119,19 @@ export default function mount(app) {
          WHERE v.status IN ('active','closed') OR ? = 1
          ORDER BY v.id`)
         .all(req.user?.id ?? 0, seesAll ? 1 : 0);
-      res.json({ ventures: rows.map(ventureView) });
+      const now = Date.now();
+      res.json({ ventures: rows.map((r) => ventureView(r, now)) });
     } catch (e) { next(e); }
   });
 
   app.post('/api/ventures', requireRole('manager', 'admin'), async (req, res, next) => {
     try {
-      const name = str(req.body?.name, { min: 2, max: 80, name: 'name' });
-      const sector = str(req.body?.sector, { min: 2, max: 40, name: 'sector' });
-      const blurb = str(req.body?.blurb, { min: 1, max: 500, name: 'blurb' });
-      const apy = num(req.body?.apy, { min: 0, max: 100, name: 'apy' });
-      const minAmount = round2(num(req.body?.minAmount, { min: 0.01, max: 1e9, name: 'minAmount' }));
-      const targetAmount = round2(num(req.body?.targetAmount, { min: 0.01, max: 1e12, name: 'targetAmount' }));
-      if (targetAmount < minAmount) throw new ApiError(400, 'targetAmount must be at least minAmount');
-      const payoutFreq = req.body?.payoutFreq !== undefined
-        ? oneOf(req.body.payoutFreq, PAYOUT_FREQS, 'payoutFreq')
-        : 'quarterly';
+      const f = ventureFields(req.body);
+      assertVentureShape(f);
+      const { name, sector, blurb, apy } = f;
+      const minAmount = f.min_amount;
+      const targetAmount = f.target_amount;
+      const payoutFreq = f.payout_freq ?? 'quarterly';
 
       let managerId = req.user.id;
       if (req.body?.managerId !== undefined) {
@@ -76,9 +148,10 @@ export default function mount(app) {
 
       const venture = await tx(async () => {
         const id = Number((await db.prepare(
-          `INSERT INTO ventures (name, sector, blurb, apy, min_amount, target_amount, status, manager_id, payout_freq)
-           VALUES (?,?,?,?,?,?,'pending',?,?)`)
-          .run(name, sector, blurb, apy, minAmount, targetAmount, managerId, payoutFreq)).lastInsertRowid);
+          `INSERT INTO ventures (name, sector, blurb, apy, min_amount, target_amount, status, manager_id, payout_freq, opens_at, closes_at, badge)
+           VALUES (?,?,?,?,?,?,'pending',?,?,?,?,?)`)
+          .run(name, sector, blurb, apy, minAmount, targetAmount, managerId, payoutFreq,
+            f.opens_at ?? null, f.closes_at ?? null, f.badge ?? null)).lastInsertRowid);
         await audit(req.user.id, 'venture.create', `venture:${id}`, name);
         return await db.prepare(`${VENTURE_WITH_AGGREGATES} WHERE v.id = ?`).get(req.user.id, id);
       });
@@ -94,7 +167,9 @@ export default function mount(app) {
       const out = await tx(async () => {
         const v = await db.prepare('SELECT * FROM ventures WHERE id = ?').get(id);
         if (!v) throw new ApiError(404, 'Venture not found');
-        if (v.status !== 'active') throw new ApiError(400, 'Venture is not open for investment');
+        const phase = venturePhase(v);
+        if (phase === 'upcoming') throw new ApiError(400, `This venture opens on ${String(v.opens_at).slice(0, 10)}`);
+        if (phase !== 'live') throw new ApiError(400, 'Venture is not open for investment');
         if (amount < v.min_amount) throw new ApiError(400, `Minimum investment is ${v.min_amount}`);
         if (await balance(req.user.id, 'USDC') < amount) throw new ApiError(400, 'Insufficient balance');
 

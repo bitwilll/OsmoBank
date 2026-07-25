@@ -11,7 +11,8 @@
  *   getPrices()              → ticker BTC/ETH/SOL/USDC (both marquee copies)
  *   GET /api/stats (public)  → members, treasury, dividends, votes, top APY,
  *                              live proposal code, ventures, proposals passed
- *   GET /api/ventures (auth) → venture floor top 3; the section hides on 401
+ *   GET /api/ventures (public)→ venture floor: live ventures then the upcoming
+ *                              pipeline; the section hides when the floor is empty
  *   GET /api/fundraiser(auth)→ open-raise banner; hidden on 401/404
  *   mempool.space tip height → footer network line
  * The partial's defaults are neutral ('—', width:0%, hidden sections), so a
@@ -167,22 +168,40 @@ async function fillStats(root, ctx, live) {
     : 'COUNTED FROM LIVE RECORDS · NO ESTIMATES');
 }
 
-// ---- venture floor: /api/ventures (auth-gated) -------------------------------
+// ---- venture floor: /api/ventures (public read) ------------------------------
+// Live ventures first, then the announced pipeline. Every date and percentage
+// comes off the API's own lifecycle fields — nothing here invents a phase.
+const PHASE_STYLE = {
+  live: { text: 'LIVE', color: 'var(--grn,#17a562)' },
+  upcoming: { text: 'UPCOMING', color: 'var(--red,#c47b10)' },
+};
+
 async function fillVentures(root, ctx, live, fundP) {
   const section = ctx.slot(root, 'home.venturesSection');
   if (!section) return;
   let ventures;
   try { ventures = (await ctx.api.get('/api/ventures'))?.ventures || []; }
-  catch { if (live()) section.style.display = 'none'; return; } // 401 for visitors
+  catch { if (live()) section.style.display = 'none'; return; }
   const raisingName = (await fundP)?.ventureName || null;
   if (!live()) return;
 
-  const top = ventures
-    .filter((v) => v.status === 'active')
-    .sort((a, b) => Number(b.apy) - Number(a.apy))
-    .slice(0, 3);
+  const byApy = (a, b) => Number(b.apy) - Number(a.apy);
+  const liveOnes = ventures.filter((v) => v.phase === 'live').sort(byApy);
+  // Soonest-opening first: the pipeline reads as a schedule, not a ranking.
+  const upcoming = ventures.filter((v) => v.phase === 'upcoming')
+    .sort((a, b) => String(a.opensAt || '').localeCompare(String(b.opensAt || '')));
+  const top = [...liveOnes, ...upcoming].slice(0, 3);
+
   const list = ctx.list(root, 'home.ventures');
   if (!list || !top.length) { section.style.display = 'none'; return; }
+
+  const counts = ctx.slot(root, 'home.ventureCounts');
+  if (counts) {
+    const bits = [];
+    if (liveOnes.length) bits.push(`${liveOnes.length} OPEN NOW`);
+    if (upcoming.length) bits.push(`${upcoming.length} UPCOMING`);
+    counts.textContent = bits.length ? `· ${bits.join(' · ')}` : '';
+  }
 
   list.clear();
   for (const v of top) {
@@ -194,6 +213,50 @@ async function fillVentures(root, ctx, live, fundP) {
     ctx.slot(row, 'name').textContent = v.name || '';
     ctx.slot(row, 'blurb').textContent = v.blurb || '';
     ctx.slot(row, 'apy').textContent = v.apy != null ? Number(v.apy).toFixed(1) : '—';
+
+    const ps = PHASE_STYLE[v.phase];
+    const phase = ctx.slot(row, 'phase');
+    if (phase) {
+      phase.style.display = ps ? 'flex' : 'none';
+      if (ps) {
+        phase.style.color = ps.color;
+        ctx.slot(row, 'phaseDot').style.background = ps.color;
+        ctx.slot(row, 'phaseText').textContent = ps.text;
+      }
+    }
+
+    // Progress only means something once a venture is open; an upcoming one
+    // shows its target instead of a 0% bar that implies a stalled raise.
+    const target = Number(v.targetAmount || 0);
+    const raised = Number(v.raised || 0);
+    const pct = target > 0 ? Math.round((raised / target) * 100) : 0;
+    const filled = ctx.slot(row, 'filled');
+    const min = ctx.slot(row, 'min');
+    const meter = ctx.slot(row, 'meterFill');
+    if (v.phase === 'upcoming') {
+      if (filled) filled.textContent = `TARGET ${usdCompact(target)}`;
+      if (meter) meter.style.width = '0%';
+    } else {
+      if (filled) filled.textContent = `ROUND FILLED ${pct}%`;
+      if (meter) meter.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+    }
+    if (min) min.textContent = `MIN ${usdCompact(v.minAmount)}`;
+
+    const when = ctx.slot(row, 'when');
+    if (when) {
+      if (v.phase === 'upcoming' && v.opensAt) {
+        const days = v.daysUntilOpen;
+        when.style.display = '';
+        when.textContent = `OPENS ${ctx.fmt.date(v.opensAt).toUpperCase()}`
+          + (days != null ? ` · IN ${days} DAY${days === 1 ? '' : 'S'}` : '');
+      } else if (v.phase === 'live' && v.closesAt) {
+        when.style.display = '';
+        when.textContent = `CLOSES ${ctx.fmt.date(v.closesAt).toUpperCase()}`;
+      } else {
+        when.style.display = 'none';
+      }
+    }
+
     const raising = !!raisingName && v.name === raisingName;
     const badge = ctx.slot(row, 'raising');
     if (badge) badge.style.display = raising ? 'flex' : 'none'; // template hides it

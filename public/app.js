@@ -6,14 +6,17 @@ import { api, fmt } from './js/api.js';
 import * as wallet from './js/wallet.js';
 
 const SCREENS = ['home', 'login', 'signup', 'dash', 'wallets', 'transfer', 'cards',
-  'ventures', 'edge', 'reports', 'goals', 'gov', 'fund', 'admin'];
+  'ventures', 'edge', 'reports', 'goals', 'gov', 'fund', 'assure', 'admin'];
 const FLAG = {
   home: 'isHome', login: 'isLogin', signup: 'isSignup', dash: 'isDash',
   wallets: 'isWallets', transfer: 'isTransfer', cards: 'isCards',
   ventures: 'isVentures', edge: 'isEdge', reports: 'isReports',
-  goals: 'isGoals', gov: 'isGov', fund: 'isFund', admin: 'isAdmin',
+  goals: 'isGoals', gov: 'isGov', fund: 'isFund', assure: 'isAssure',
+  admin: 'isAdmin',
 };
-const PUBLIC_SCREENS = ['home', 'login', 'signup', 'fund'];
+// Osmo Assure explains itself to anyone; the verification portal inside it only
+// renders for a signed-in member, and the API enforces that independently.
+const PUBLIC_SCREENS = ['home', 'login', 'signup', 'fund', 'assure'];
 // Operator sign-in lives at a private deep link rather than a visible tab.
 const ADMIN_LOGIN_HASH = '#/login/admin';
 
