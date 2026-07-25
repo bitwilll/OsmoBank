@@ -489,6 +489,8 @@ async function renderVentures(root, ctx) {
     `VENTURES · ${ventures.length} TOTAL${summary ? ` (${summary})` : ''}`,
     'Every venture, whatever its status. Opening and closing dates decide the phase — a venture with a future opening date is announced publicly but cannot be staked in yet.');
 
+  buildVentureCreator(card, root, ctx);
+
   if (!ventures.length) return emptyRow(card, 'No ventures yet.');
 
   for (const v of ventures) {
@@ -545,6 +547,69 @@ async function renderVentures(root, ctx) {
     row.appendChild(editor);
     card.appendChild(row);
   }
+}
+
+// Listing a venture from the console. It still enters as 'pending' and needs an
+// explicit approval — the same path a manager's submission takes — so creating
+// one here is never a silent self-approval.
+const SECTORS = ['ENERGY', 'ROBOTICS', 'LOGISTICS', 'OCEAN', 'DATA', 'INFRA', 'AGRI'];
+
+function buildVentureCreator(card, root, ctx) {
+  const box = el('div', 'border:1px dotted var(--dt2,#c6c6c6);border-radius:14px;padding:16px;margin-bottom:8px');
+  const form = el('div', 'display:none;margin-top:14px');
+  const head = el('div', 'display:flex;align-items:center;gap:10px;flex-wrap:wrap');
+  head.append(el('div', FIELD_LABEL + ';margin:0', 'LIST A NEW VENTURE'),
+    btn('+ NEW VENTURE', BTN_GHOST, () => {
+      form.style.display = form.style.display === 'none' ? '' : 'none';
+    }));
+  box.append(head, form);
+
+  const f = {
+    name: input(''), sector: el('select', INPUT + ';cursor:pointer'), apy: input('', 'number'),
+    minAmount: input('', 'number'), targetAmount: input('', 'number'),
+    opensAt: input('', 'date'), closesAt: input('', 'date'),
+  };
+  for (const s of SECTORS) {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    f.sector.appendChild(o);
+  }
+  f.name.placeholder = 'e.g. Helios Grid';
+  f.apy.placeholder = '12.4';
+  f.minAmount.placeholder = '100';
+  f.targetAmount.placeholder = '2400000';
+
+  const grid = el('div', 'display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px');
+  grid.append(
+    field('NAME', f.name), field('SECTOR', f.sector), field('APY (%)', f.apy),
+    field('MINIMUM (USDC)', f.minAmount), field('TARGET (USDC)', f.targetAmount),
+    field('OPENS (OPTIONAL)', f.opensAt), field('CLOSES (OPTIONAL)', f.closesAt));
+  form.appendChild(grid);
+
+  const blurb = el('textarea', INPUT + ';min-height:56px;resize:vertical');
+  blurb.placeholder = 'One line on what this venture does';
+  form.append(el('div', FIELD_LABEL + ';margin-top:12px', 'BLURB'), blurb);
+  form.appendChild(el('div', 'font-size:12px;color:var(--mut,#757575);margin-top:10px;line-height:1.5',
+    'Listed ventures start pending and appear in the queue above for approval. Leave the dates blank to open on approval and stay open until closed.'));
+
+  form.appendChild(btn('SUBMIT FOR REVIEW', BTN_SOLID + ';display:inline-block;margin-top:14px;padding:10px 20px;font-size:12px', async () => {
+    try {
+      const r = await ctx.api.post('/api/ventures', {
+        name: f.name.value.trim(),
+        sector: f.sector.value,
+        blurb: blurb.value.trim(),
+        apy: Number(f.apy.value),
+        minAmount: Number(f.minAmount.value),
+        targetAmount: Number(f.targetAmount.value),
+        opensAt: f.opensAt.value || null,
+        closesAt: f.closesAt.value || null,
+      });
+      ctx.toast(`${String(r.venture.name).toUpperCase()} LISTED · AWAITING APPROVAL`);
+      await refreshAll(root, ctx);
+    } catch (e) { ctx.errToast(e); }
+  }));
+
+  card.appendChild(box);
 }
 
 function buildVentureEditor(box, v, root, ctx) {

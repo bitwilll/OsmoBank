@@ -86,6 +86,31 @@ test('admin ventures list covers every status and counts holders', async () => {
   assert.equal((await member.c.get('/api/admin/ventures')).status, 403);
 });
 
+test('a venture listed from the console still needs approval', async () => {
+  // Exactly the payload the console form posts, blank dates included.
+  const created = await admin.c.post('/api/ventures', {
+    name: 'Console Listed Co', sector: 'ENERGY', blurb: 'Listed from the operator console.',
+    apy: 9, minAmount: 100, targetAmount: 50000, opensAt: null, closesAt: null,
+  });
+  assert.equal(created.status, 201);
+  const v = created.json.venture;
+  assert.equal(v.status, 'pending', 'creating from the console is not a self-approval');
+  assert.equal(v.phase, 'pending');
+  assert.equal(v.investable, false);
+  assert.equal(v.opensAt, null);
+
+  // Members cannot see it on the floor, and staking is refused while it is pending.
+  assert.equal((await member.c.get('/api/ventures')).json.ventures.some((x) => x.id === v.id), false);
+  const early = await member.c.post(`/api/ventures/${v.id}/invest`, { amount: 500 });
+  assert.equal(early.status, 400);
+  assert.match(early.json.error, /not open for investment/i);
+
+  assert.equal((await admin.c.post(`/api/admin/ventures/${v.id}/approve`, {})).status, 200);
+  const live = (await member.c.get('/api/ventures')).json.ventures.find((x) => x.id === v.id);
+  assert.equal(live.phase, 'live');
+  assert.equal(live.investable, true);
+});
+
 test('admin edit is partial, validates the merged shape, and is audited', async () => {
   const created = await admin.c.post('/api/ventures', {
     name: 'Editable Co', sector: 'INFRA', blurb: 'b', apy: 4, minAmount: 500, targetAmount: 20000,
