@@ -189,3 +189,22 @@ test('operator email: whitespace is normalised, an invalid value is ignored', as
   assert.equal((await client(srv.base).post('/api/auth/login',
     { identifier: 'marisol@osmo.money', passphrase: 'manager-test-pass-123' })).status, 200);
 });
+
+test('operator password: a database synced before the marker existed still keeps a self-chosen passphrase', async (t) => {
+  // Boot 1 mimics a DB whose password was already applied by an older build:
+  // the hash matches the env, but no marker was ever recorded.
+  const srv1 = await bootServer({ OSMO_ADMIN_PASS: 'legacy-env-pass-4444' });
+  const a = client(srv1.base);
+  assert.equal((await a.post('/api/auth/login', { identifier: 'admin', passphrase: 'legacy-env-pass-4444' })).status, 200);
+  await a.post('/api/me/passphrase', { current: 'legacy-env-pass-4444', next: 'operator-own-pass-55' });
+  srv1.stop();
+  await new Promise((r) => setTimeout(r, 200));
+
+  const srv2 = await bootServer({ OSMO_DB: srv1.dbPath, OSMO_ADMIN_PASS: 'legacy-env-pass-4444' });
+  t.after(() => srv2.stop());
+  const c = client(srv2.base);
+  assert.equal((await c.post('/api/auth/login', { identifier: 'admin', passphrase: 'operator-own-pass-55' })).status, 200,
+    'their own passphrase survives');
+  assert.equal((await client(srv2.base).post('/api/auth/login',
+    { identifier: 'admin', passphrase: 'legacy-env-pass-4444' })).status, 401, 'the env value was not re-applied');
+});

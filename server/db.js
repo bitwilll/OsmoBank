@@ -470,7 +470,17 @@ async function syncOperator(handle, pass, email) {
     }
   }
 
-  if (!pass || passMatches(pass, row.pass)) return;
+  if (!pass) return;
+  const remember = (hash) => db.prepare(
+    'INSERT INTO meta (key, value) VALUES (?,?) ON CONFLICT (key) DO UPDATE SET value = excluded.value')
+    .run(appliedKey, hash);
+  if (passMatches(pass, row.pass)) {
+    // Already in effect (including on databases synced before this marker
+    // existed). Record it, so a passphrase the operator sets later is
+    // recognisable as theirs and never reverted.
+    await remember(row.pass);
+    return;
+  }
   // Only overwrite a password this sync itself last wrote; a password the
   // operator chose in the app is theirs to keep.
   const applied = (await db.prepare('SELECT value FROM meta WHERE key = ?').get(appliedKey))?.value;
@@ -484,8 +494,7 @@ async function syncOperator(handle, pass, email) {
     await db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.id);
     await db.prepare("UPDATE password_resets SET used_at = datetime('now') WHERE user_id = ? AND used_at IS NULL")
       .run(row.id);
-    await db.prepare('INSERT INTO meta (key, value) VALUES (?,?) ON CONFLICT (key) DO UPDATE SET value = excluded.value')
-      .run(appliedKey, next);
+    await remember(next);
     await audit(null, 'pass_sync', 'user:' + row.id,
       `@${row.handle}: passphrase set from environment; sessions and pending resets revoked`);
   });
