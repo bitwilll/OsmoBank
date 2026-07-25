@@ -85,3 +85,26 @@ test('/api/stats reports real aggregates in demo mode too', async (t) => {
   assert.equal(stats.activeVentures, 6);
   assert.ok(stats.treasuryUsd > 0);
 });
+
+test('OSMO_STATS_DEFAULTS seeds curated figures once; operator edits win forever', async (t) => {
+  const DEFAULTS = JSON.stringify({ treasuryUsd: 284000000, members: 48201, proposalsPassed: 41, liveVotes: 1 });
+  const srv1 = await bootServer({ OSMO_STATS_DEFAULTS: DEFAULTS });
+  const s1 = (await client(srv1.base).get('/api/stats')).json;
+  assert.equal(s1.treasuryUsd, 284000000);
+  assert.equal(s1.members, 48201);
+  assert.equal(s1.proposalsPassed, 41);
+  assert.deepEqual([...s1.curated].sort(), ['liveVotes', 'members', 'proposalsPassed', 'treasuryUsd']);
+
+  // The operator clears everything → live values; a reboot with the env still
+  // set must NOT re-seed (the meta row exists, even when empty).
+  const { c: admin } = await loginAdmin(srv1.base);
+  await admin.put('/api/admin/stats', {});
+  srv1.stop();
+  await new Promise((r) => setTimeout(r, 200));
+
+  const srv2 = await bootServer({ OSMO_STATS_DEFAULTS: DEFAULTS, OSMO_DB: srv1.dbPath });
+  t.after(() => srv2.stop());
+  const s2 = (await client(srv2.base).get('/api/stats')).json;
+  assert.deepEqual(s2.curated, [], 'operator clear survives reboot despite env defaults');
+  assert.equal(s2.members, 5); // live demo-seed count
+});

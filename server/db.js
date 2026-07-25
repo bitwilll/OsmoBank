@@ -434,6 +434,29 @@ async function syncOperator(handle, pass, email) {
   }
 }
 
+// Optional launch figures for the homepage "THE BANK, IN NUMBERS" section:
+// OSMO_STATS_DEFAULTS holds a JSON object of curated stat overrides (same
+// fields the admin console edits — see routes/dao.js STAT_OVERRIDE_FIELDS,
+// duplicated here because dao.js imports this module). Applied ONLY when no
+// stats_overrides meta row exists yet, so anything the operator later saves —
+// including clearing back to live values — permanently wins over the env.
+async function seedStatOverridesFromEnv() {
+  const raw = process.env.OSMO_STATS_DEFAULTS;
+  if (!raw) return;
+  if (await db.prepare("SELECT 1 FROM meta WHERE key = 'stats_overrides'").get()) return;
+  try {
+    const parsed = JSON.parse(raw);
+    const out = {};
+    for (const f of ['members', 'treasuryUsd', 'dividendsPaid', 'liveVotes', 'proposalsPassed', 'activeVentures', 'topApy']) {
+      if (typeof parsed?.[f] === 'number' && Number.isFinite(parsed[f])) out[f] = parsed[f];
+    }
+    if (!Object.keys(out).length) return;
+    await db.prepare("INSERT INTO meta (key, value) VALUES ('stats_overrides', ?)").run(JSON.stringify(out));
+  } catch (e) {
+    console.error('OSMO_STATS_DEFAULTS ignored (invalid JSON):', e?.message);
+  }
+}
+
 // ---- one-time initialisation (schema + seed) -------------------------------
 let initPromise = null;
 export function initDb() {
@@ -453,6 +476,7 @@ export function initDb() {
     if (!seedDemo()) await purgeDemoContent();
     await syncOperator('admin', process.env.OSMO_ADMIN_PASS, adminEmail());
     await syncOperator('marisol', process.env.OSMO_MANAGER_PASS, managerEmail());
+    await seedStatOverridesFromEnv();
   })().catch((e) => {
     // Never cache a failed init (e.g. the DB is unreachable / not yet
     // configured). Clearing the memo lets the next request retry, so the
