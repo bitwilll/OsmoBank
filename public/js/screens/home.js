@@ -157,6 +157,14 @@ async function fillStats(root, ctx, live) {
 
   setAll(root, 'dao.proposalsPassed', fmt.num(s.proposalsPassed));
   setAll(root, 'dao.liveVotes', fmt.num(s.liveVotes));
+
+  // Honesty labels: when the operator has published curated figures, the
+  // section must not claim they were computed from the ledger.
+  const curated = Array.isArray(s.curated) && s.curated.length > 0;
+  setAll(root, 'stats.caption', curated ? 'PUBLISHED BY THE DAO OPERATOR' : 'COMPUTED LIVE FROM THE LEDGER');
+  setAll(root, 'stats.countCaption', curated
+    ? 'FIGURES SET BY THE OPERATOR · LIVE VALUES WHERE UNSET'
+    : 'COUNTED FROM LIVE RECORDS · NO ESTIMATES');
 }
 
 // ---- venture floor: /api/ventures (auth-gated) -------------------------------

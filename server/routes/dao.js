@@ -95,30 +95,51 @@ async function fundraiserView(f) {
   };
 }
 
+// Real aggregates for the home page, computed from actual rows. The DAO
+// operator may publish curated figures instead (stored under meta key
+// 'stats_overrides' by the admin console); overridden fields are listed in
+// `curated` so the page can label them honestly instead of claiming they were
+// computed from the ledger.
+export const STAT_OVERRIDE_FIELDS = ['members', 'treasuryUsd', 'dividendsPaid', 'liveVotes', 'proposalsPassed', 'activeVentures', 'topApy'];
+
+export async function computeStats() {
+  const members = (await db.prepare("SELECT COUNT(*) AS n FROM users WHERE status != 'frozen'").get())?.n ?? 0;
+  const usdcHeld = (await db.prepare("SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'USDC'").get())?.s ?? 0;
+  const dividendsPaid = (await db.prepare(
+    "SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE kind = 'dividend' AND delta > 0").get())?.s ?? 0;
+  const liveVotes = (await db.prepare("SELECT COUNT(*) AS n FROM proposals WHERE status = 'live'").get())?.n ?? 0;
+  const proposalsPassed = (await db.prepare("SELECT COUNT(*) AS n FROM proposals WHERE status = 'passed'").get())?.n ?? 0;
+  const live = await db.prepare("SELECT code FROM proposals WHERE status = 'live' ORDER BY id DESC LIMIT 1").get();
+  const topApy = (await db.prepare("SELECT MAX(apy) AS a FROM ventures WHERE status = 'active'").get())?.a ?? null;
+  const activeVentures = (await db.prepare("SELECT COUNT(*) AS n FROM ventures WHERE status = 'active'").get())?.n ?? 0;
+  return {
+    members,
+    treasuryUsd: round2(usdcHeld),
+    dividendsPaid: round2(dividendsPaid),
+    liveVotes,
+    liveProposalCode: live?.code ?? null,
+    proposalsPassed,
+    topApy,
+    activeVentures,
+  };
+}
+
+export async function readStatOverrides() {
+  const row = await db.prepare("SELECT value FROM meta WHERE key = 'stats_overrides'").get();
+  if (!row) return {};
+  try {
+    const parsed = JSON.parse(row.value);
+    const out = {};
+    for (const f of STAT_OVERRIDE_FIELDS) if (typeof parsed?.[f] === 'number') out[f] = parsed[f];
+    return out;
+  } catch { return {}; }
+}
+
 export default function mount(app) {
-  // Public, real aggregates for the home page — every number is computed from
-  // actual rows so the marketing surface can never overstate the DAO.
   app.get('/api/stats', async (_req, res, next) => {
     try {
-      const members = (await db.prepare("SELECT COUNT(*) AS n FROM users WHERE status != 'frozen'").get())?.n ?? 0;
-      const usdcHeld = (await db.prepare("SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE currency = 'USDC'").get())?.s ?? 0;
-      const dividendsPaid = (await db.prepare(
-        "SELECT COALESCE(SUM(delta),0) AS s FROM ledger WHERE kind = 'dividend' AND delta > 0").get())?.s ?? 0;
-      const liveVotes = (await db.prepare("SELECT COUNT(*) AS n FROM proposals WHERE status = 'live'").get())?.n ?? 0;
-      const proposalsPassed = (await db.prepare("SELECT COUNT(*) AS n FROM proposals WHERE status = 'passed'").get())?.n ?? 0;
-      const live = await db.prepare("SELECT code FROM proposals WHERE status = 'live' ORDER BY id DESC LIMIT 1").get();
-      const topApy = (await db.prepare("SELECT MAX(apy) AS a FROM ventures WHERE status = 'active'").get())?.a ?? null;
-      const activeVentures = (await db.prepare("SELECT COUNT(*) AS n FROM ventures WHERE status = 'active'").get())?.n ?? 0;
-      res.json({
-        members,
-        treasuryUsd: round2(usdcHeld),
-        dividendsPaid: round2(dividendsPaid),
-        liveVotes,
-        liveProposalCode: live?.code ?? null,
-        proposalsPassed,
-        topApy,
-        activeVentures,
-      });
+      const [liveStats, overrides] = await Promise.all([computeStats(), readStatOverrides()]);
+      res.json({ ...liveStats, ...overrides, curated: Object.keys(overrides) });
     } catch (e) { next(e); }
   });
 

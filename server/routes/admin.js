@@ -2,6 +2,7 @@ import { db, tx, audit } from '../db.js';
 import {
   ApiError, str, num, oneOf, round2, requireRole, publicUser,
 } from '../lib/util.js';
+import { computeStats, readStatOverrides, STAT_OVERRIDE_FIELDS } from './dao.js';
 
 const ROLES = ['member', 'manager', 'admin'];
 const STATUSES = ['active', 'review', 'frozen'];
@@ -40,6 +41,36 @@ const ventureView = (v) => ({
 });
 
 export default function mount(app) {
+  // ---- homepage numbers ("THE BANK, IN NUMBERS") -----------------------------
+  // The operator may publish curated figures for the public stats. A blank
+  // (absent/null) field always falls back to the live ledger value, and the
+  // homepage labels curated figures as operator-published — never as computed.
+  app.get('/api/admin/stats', requireRole('admin'), async (_req, res, next) => {
+    try {
+      res.json({ live: await computeStats(), overrides: await readStatOverrides() });
+    } catch (e) { next(e); }
+  });
+
+  app.put('/api/admin/stats', requireRole('admin'), async (req, res, next) => {
+    try {
+      const overrides = {};
+      for (const f of STAT_OVERRIDE_FIELDS) {
+        const v = req.body?.[f];
+        if (v === undefined || v === null || v === '') continue; // blank → live value
+        overrides[f] = f === 'topApy'
+          ? num(v, { min: 0, max: 100, name: f })
+          : round2(num(v, { min: 0, max: 1e12, name: f }));
+      }
+      await db.prepare(
+        "INSERT INTO meta (key, value) VALUES ('stats_overrides', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+        .run(JSON.stringify(overrides));
+      const fields = Object.keys(overrides);
+      await audit(req.user.id, 'stats.override', 'meta:stats_overrides',
+        fields.length ? `set: ${fields.join(', ')}` : 'cleared — all figures live');
+      res.json({ live: await computeStats(), overrides });
+    } catch (e) { next(e); }
+  });
+
   app.get('/api/admin/overview', requireRole('admin'), async (req, res, next) => {
     try {
       const members = (await db.prepare('SELECT COUNT(*) AS n FROM users').get()).n;

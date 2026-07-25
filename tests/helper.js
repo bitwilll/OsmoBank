@@ -65,6 +65,7 @@ export function client(base) {
   return {
     get: (p) => call('GET', p),
     post: (p, b = {}) => call('POST', p, b),
+    put: (p, b = {}) => call('PUT', p, b),
     patch: (p, b = {}) => call('PATCH', p, b),
     del: (p) => call('DELETE', p),
     cookieValue: () => cookie,

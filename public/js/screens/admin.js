@@ -431,6 +431,100 @@ async function renderSupport(root, ctx) {
   panel.appendChild(card);
 }
 
+// ---- homepage numbers editor (injected panel) -------------------------------
+// The operator can publish curated figures for the public "THE BANK, IN
+// NUMBERS" section. Blank fields always show the live ledger value, and the
+// homepage labels curated figures as operator-published.
+const STAT_FIELDS = [
+  ['treasuryUsd', 'DAO TREASURY (USDC)'], ['members', 'MEMBER-OWNERS'],
+  ['dividendsPaid', 'DIVIDENDS PAID (USDC)'], ['activeVentures', 'ACTIVE VENTURES'],
+  ['proposalsPassed', 'PROPOSALS PASSED'], ['liveVotes', 'LIVE VOTES'], ['topApy', 'TOP APY (%)'],
+];
+
+async function renderStatsEditor(root, ctx) {
+  let panel = root.querySelector('[data-stats-editor]');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.setAttribute('data-stats-editor', '1');
+    panel.style.cssText = 'max-width:1180px;margin:8px auto 0;padding:0 clamp(16px,4vw,40px);box-sizing:border-box';
+    root.appendChild(panel);
+  }
+  let data;
+  try { data = await ctx.api.get('/api/admin/stats'); } catch { return; }
+  panel.textContent = '';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--sf,#fff);border:1px solid var(--hr,#e4e4e4);border-radius:18px;padding:20px 22px';
+  const head = document.createElement('div');
+  head.style.cssText = "display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--mut,#757575);margin-bottom:4px";
+  const ic = document.createElement('span');
+  ic.style.cssText = "font-family:'Material Symbols Sharp';font-size:16px;line-height:1";
+  ic.textContent = 'tune';
+  head.append(ic, document.createTextNode('HOMEPAGE NUMBERS · THE BANK, IN NUMBERS'));
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:12.5px;line-height:1.55;color:var(--mut,#757575);margin-bottom:14px';
+  hint.textContent = 'Blank fields show the live ledger value (shown as the placeholder). When any figure is set here, the homepage labels the section "Published by the DAO operator" instead of "Computed live from the ledger".';
+  card.append(head, hint);
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px';
+  const inputs = {};
+  for (const [field, label] of STAT_FIELDS) {
+    const cell = document.createElement('div');
+    const lab = document.createElement('div');
+    lab.style.cssText = "font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--mut,#757575);margin-bottom:6px";
+    lab.textContent = label;
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.inputMode = 'decimal';
+    inp.placeholder = data.live[field] == null ? '—' : String(data.live[field]);
+    if (data.overrides[field] !== undefined) inp.value = String(data.overrides[field]);
+    inp.style.cssText = "width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--dt,#d9d9d9);border-radius:10px;background:var(--bg,#f4f4f4);color:var(--ink,#0a0a0a);font-family:'IBM Plex Mono',monospace;font-size:13px";
+    inputs[field] = inp;
+    cell.append(lab, inp);
+    grid.appendChild(cell);
+  }
+  card.appendChild(grid);
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:9px;margin-top:16px;flex-wrap:wrap';
+  const mkBtn = (label, primary) => {
+    const b = document.createElement('div');
+    b.setAttribute('role', 'button'); b.tabIndex = 0;
+    b.style.cssText = primary
+      ? 'display:flex;align-items:center;gap:7px;padding:10px 22px;background:var(--ink,#0a0a0a);color:var(--inv,#fff);border-radius:100px;font-size:13.5px;font-weight:600;cursor:pointer'
+      : 'padding:10px 18px;border:1px solid var(--dt,#d9d9d9);border-radius:100px;font-size:13.5px;font-weight:600;cursor:pointer';
+    b.textContent = label;
+    return b;
+  };
+  const save = mkBtn('Publish numbers', true);
+  save.addEventListener('click', async () => {
+    const body = {};
+    for (const [field] of STAT_FIELDS) {
+      const raw = inputs[field].value.trim().replace(/[$,%\s]/g, '').replace(/,/g, '');
+      if (raw === '') continue;
+      if (!Number.isFinite(Number(raw))) { ctx.toast(`${field.toUpperCase()} MUST BE A NUMBER`, 'err'); return; }
+      body[field] = Number(raw);
+    }
+    try {
+      await ctx.api.put('/api/admin/stats', body);
+      ctx.toast(Object.keys(body).length ? 'HOMEPAGE NUMBERS PUBLISHED' : 'ALL FIGURES BACK TO LIVE VALUES');
+      await renderStatsEditor(root, ctx);
+    } catch (e) { ctx.errToast(e); }
+  });
+  const reset = mkBtn('Use live values', false);
+  reset.addEventListener('click', async () => {
+    try {
+      await ctx.api.put('/api/admin/stats', {});
+      ctx.toast('ALL FIGURES BACK TO LIVE VALUES');
+      await renderStatsEditor(root, ctx);
+    } catch (e) { ctx.errToast(e); }
+  });
+  row.append(save, reset);
+  card.appendChild(row);
+  panel.appendChild(card);
+}
+
 // ---- entry ------------------------------------------------------------------
 export async function hydrate(root, ctx) {
   if (!root.dataset.hydrated) {
@@ -449,5 +543,6 @@ export async function hydrate(root, ctx) {
   }
 
   await load(root, ctx);
+  await renderStatsEditor(root, ctx);
   await renderSupport(root, ctx);
 }

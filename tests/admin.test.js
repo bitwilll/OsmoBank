@@ -309,3 +309,47 @@ test('audit log: admin and manager can read, newest first, limit validated', asy
   assert.equal((await admin.c.get('/api/admin/audit?limit=abc')).status, 400);
   assert.equal((await admin.c.get('/api/admin/audit?limit=500')).status, 400);
 });
+
+test('homepage numbers: admin-published overrides with honest curated flag', async () => {
+  // Access control: members and anonymous callers are rejected.
+  assert.equal((await member.c.get('/api/admin/stats')).status, 403);
+  assert.equal((await member.c.put('/api/admin/stats', { members: 1 })).status, 403);
+  assert.equal((await client(srv.base).put('/api/admin/stats', {})).status, 401);
+
+  // Baseline: no overrides → /api/stats is fully live, curated empty.
+  let pub = (await client(srv.base).get('/api/stats')).json;
+  assert.deepEqual(pub.curated, []);
+  const liveMembers = pub.members;
+
+  // Admin publishes curated treasury + members; other fields stay live.
+  const r = await admin.c.put('/api/admin/stats', { treasuryUsd: 5000000, members: 12000, topApy: '9.5' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.overrides, { treasuryUsd: 5000000, members: 12000, topApy: 9.5 });
+
+  pub = (await client(srv.base).get('/api/stats')).json;
+  assert.equal(pub.treasuryUsd, 5000000);
+  assert.equal(pub.members, 12000);
+  assert.equal(pub.topApy, 9.5);
+  assert.equal(pub.liveVotes, 1, 'un-overridden fields remain live');
+  assert.deepEqual([...pub.curated].sort(), ['members', 'topApy', 'treasuryUsd']);
+
+  // GET editor view: live + overrides side by side.
+  const view = (await admin.c.get('/api/admin/stats')).json;
+  assert.equal(view.live.members, liveMembers);
+  assert.equal(view.overrides.members, 12000);
+
+  // Validation: non-numeric and out-of-range are rejected, state unchanged.
+  assert.equal((await admin.c.put('/api/admin/stats', { treasuryUsd: 'lots' })).status, 400);
+  assert.equal((await admin.c.put('/api/admin/stats', { topApy: 250 })).status, 400);
+  assert.equal((await client(srv.base).get('/api/stats')).json.members, 12000);
+
+  // Blank body clears everything → fully live again.
+  await admin.c.put('/api/admin/stats', {});
+  pub = (await client(srv.base).get('/api/stats')).json;
+  assert.deepEqual(pub.curated, []);
+  assert.equal(pub.members, liveMembers);
+
+  // The whole story is in the audit log.
+  const log = (await admin.c.get('/api/admin/audit?limit=20')).json.entries;
+  assert.ok(log.some((e) => e.action === 'stats.override'));
+});
